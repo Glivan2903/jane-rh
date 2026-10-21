@@ -9,3 +9,4 @@ video/captura
 video/remotion/public/tela.mp4
 video/captura-anterior
 .env.portainer
+docker-compose.portainer.yml
