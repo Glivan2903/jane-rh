@@ -1,0 +1,11 @@
+DATABASE_URL=postgresql://postgres.bxxwmkqesptnzmdirlhy:Glivan@()#(@1@aws-0-REGIAO.pooler.supabase.com:6543/postgres
+DATABASE_SSL=true
+DB_POOL_MAX=1
+NODE_ENV=production
+COOKIE_SECURE=true
+SESSION_HOURS=8
+SETUP_TOKEN=1f866b98e87b
+UPLOAD_DIR=/tmp/uploads
+BACKUP_DIR=/tmp/backups
+BACKUP_AUTO_HOURS=0
+
