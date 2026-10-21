@@ -10,7 +10,7 @@ pg.types.setTypeParser(1082, (v) => v);
 const dbUrl = new URL(config.databaseUrl);
 dbUrl.searchParams.delete('sslmode');
 export const pool = new pg.Pool({
-  connectionString: dbUrl.toString(), max: 10,
+  connectionString: dbUrl.toString(), max: Number(process.env.DB_POOL_MAX ?? 10),
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
 });
 

@@ -11,3 +11,5 @@ video/captura-anterior
 .env.portainer
 docker-compose.portainer.yml
 stack-portainer.yml
+.env.vercel
+.vercel
