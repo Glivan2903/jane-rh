@@ -4,6 +4,7 @@ import { AuthProvider, ConfirmProvider, ToastProvider, useAuth } from './lib/app
 import { Layout } from './components/Layout';
 import { ErrorBox, Spinner } from './components/ui';
 import Login from './pages/Login';
+import Setup from './pages/Setup';
 import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
 
@@ -48,6 +49,7 @@ export default function App() {
         <Suspense fallback={<div className="flex h-full items-center justify-center"><Spinner className="h-8 w-8 text-primary" /></div>}>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/configurar" element={<Setup />} />
             <Route element={<Protected><Layout /></Protected>}>
               <Route index element={g('dash.view', <Dashboard />)} />
               <Route path="perfil/senha" element={<ChangePassword />} />

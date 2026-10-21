@@ -51,6 +51,47 @@ authRouter.post('/login', loginLimiter, h(async (req, res) => {
   res.json(me(req));
 }));
 
+// Primeiro acesso: só existe enquanto não há nenhum usuário. Depois disso as rotas respondem 404/409.
+const setupLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 20, standardHeaders: true, legacyHeaders: false, message: { error: 'Muitas tentativas. Aguarde alguns minutos.' } });
+const hasUsers = async () => (await pool.query('SELECT EXISTS (SELECT 1 FROM users) AS e')).rows[0].e as boolean;
+
+authRouter.get('/setup-status', h(async (_req, res) => {
+  res.json({ needsSetup: !(await hasUsers()), requiresToken: !!process.env.SETUP_TOKEN });
+}));
+
+authRouter.post('/setup', setupLimiter, h(async (req, res) => {
+  const body = parse(z.object({
+    name: z.string().trim().min(3, 'Informe o nome completo').max(120),
+    email: z.string().trim().toLowerCase().email('E-mail inválido').max(160),
+    password: z.string().refine(strongPassword, PASSWORD_RULE),
+    confirm: z.string(),
+    token: z.string().optional(),
+  }).refine((d) => d.password === d.confirm, { path: ['confirm'], message: 'As senhas não conferem' }), req.body);
+  const expected = process.env.SETUP_TOKEN;
+  if (expected && body.token !== expected) throw new HttpError(403, 'Código de configuração inválido.');
+
+  const c = await pool.connect();
+  let userId: string;
+  try {
+    await c.query('BEGIN');
+    await c.query('SELECT pg_advisory_xact_lock(81472001)'); // impede dois cadastros iniciais simultâneos
+    if ((await c.query('SELECT 1 FROM users LIMIT 1')).rowCount) { await c.query('ROLLBACK'); throw new HttpError(409, 'O sistema já foi configurado.'); }
+    const role = (await c.query(`SELECT id FROM roles WHERE name='Administrador'`)).rows[0];
+    userId = (await c.query(
+      'INSERT INTO users (name,email,password_hash,role_id) VALUES ($1,$2,$3,$4) RETURNING id',
+      [body.name, body.email, await bcrypt.hash(body.password, 12), role.id])).rows[0].id;
+    await c.query('COMMIT');
+  } catch (e) {
+    await c.query('ROLLBACK').catch(() => undefined);
+    throw e;
+  } finally { c.release(); }
+
+  const token = await createSession(userId, req, res);
+  req.user = (await fetchSessionUser(token))!;
+  await audit(req, { action: 'criar', module: 'config', entity: 'user', entityId: userId, summary: `Administrador inicial criado: ${body.email}` });
+  res.json(me(req));
+}));
+
 authRouter.post('/logout', h(async (req, res) => {
   const t = req.cookies?.[COOKIE];
   if (t) await pool.query('DELETE FROM sessions WHERE token_hash = $1', [sha256(t)]);

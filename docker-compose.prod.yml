@@ -1,5 +1,7 @@
 # Stack para Portainer (Repository ou Web editor com imagem já publicada).
-# Variáveis obrigatórias: DB_PASSWORD. Opcional: DB_USER, DB_NAME, APP_PORT, COOKIE_SECURE.
+# Variáveis obrigatórias: DB_PASSWORD. Opcional: DB_USER, DB_NAME, APP_PORT, COOKIE_SECURE, SETUP_TOKEN.
+# O primeiro administrador é criado pela tela /configurar no primeiro acesso.
+# SETUP_TOKEN (opcional): se definido, é exigido nessa tela (evita que um terceiro cadastre o admin primeiro).
 services:
   db:
     image: postgres:16-alpine
@@ -10,6 +12,7 @@ services:
       POSTGRES_DB: ${DB_NAME:-jane}
     volumes:
       - gentis_pgdata:/var/lib/postgresql/data
+    networks: [gentis]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-jane} -d ${DB_NAME:-jane}"]
       interval: 5s
@@ -31,10 +34,15 @@ services:
       SESSION_HOURS: 8
       BACKUP_AUTO_HOURS: ${BACKUP_AUTO_HOURS:-24}
       BACKUP_KEEP: 14
+      SETUP_TOKEN: ${SETUP_TOKEN:-}
+    networks: [gentis]
     volumes:
       - gentis_storage:/app/server/storage
     ports:
       - "${APP_PORT:-3001}:3001"
+
+networks:
+  gentis:
 
 volumes:
   gentis_pgdata:

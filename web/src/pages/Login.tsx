@@ -5,6 +5,7 @@ import { HeartHandshake, LineChart, PackageCheck, ShieldCheck } from 'lucide-rea
 import { Brand, ParticleNetwork } from '../components/brand';
 import { Field } from '../components/forms';
 import { Spinner } from '../components/ui';
+import { api } from '../lib/api';
 import { errMsg, useAuth } from '../lib/app';
 
 export default function Login() {
@@ -24,6 +25,11 @@ export default function Login() {
     }, root);
     return () => ctx.revert();
   }, []);
+
+  // Sistema recém-implantado (sem usuários): leva ao cadastro do primeiro administrador.
+  useEffect(() => {
+    api.get<{ needsSetup: boolean }>('/auth/setup-status').then((r) => { if (r.needsSetup) nav('/configurar', { replace: true }); }).catch(() => undefined);
+  }, [nav]);
 
   if (me) return <Navigate to={me.mustChangePassword ? '/perfil/senha' : '/'} replace />;
 

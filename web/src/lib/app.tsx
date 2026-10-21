@@ -6,7 +6,8 @@ import { Modal } from '../components/ui';
 
 // ---------- Auth ----------
 export interface Me { id: string; name: string; email: string; role: string; permissions: string[]; mustChangePassword: boolean }
-interface AuthCtx { me: Me | null; loading: boolean; login: (l: string, p: string) => Promise<Me>; logout: () => Promise<void>; refresh: () => Promise<void>; can: (...p: string[]) => boolean }
+interface AuthCtx { me: Me | null; loading: boolean; login: (l: string, p: string) => Promise<Me>; logout: () => Promise<void>; refresh: () => Promise<void>; setup: (d: SetupData) => Promise<Me>; can: (...p: string[]) => boolean }
+export interface SetupData { name: string; email: string; password: string; confirm: string; token?: string }
 const Auth = createContext<AuthCtx>(null as never);
 export const useAuth = () => useContext(Auth);
 
@@ -20,6 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthCtx>(() => ({
     me, loading, refresh,
     login: async (login, password) => { const u = await api.post<Me>('/auth/login', { login, password }); setMe(u); return u; },
+    setup: async (d) => { const u = await api.post<Me>('/auth/setup', d); setMe(u); return u; },
     logout: async () => { try { await api.post('/auth/logout'); } finally { setMe(null); } },
     can: (...p) => !!me && p.some((x) => me.permissions.includes(x)),
   }), [me, loading, refresh]);
