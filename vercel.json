@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm run install:all",
+  "installCommand": "npm --prefix server install --include=dev && npm --prefix web install --include=dev",
   "buildCommand": "npm --prefix web run build",
   "outputDirectory": "web/dist",
   "functions": {
