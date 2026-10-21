@@ -1,0 +1,162 @@
+[
+  {
+    "id": "abertura",
+    "secao": "Gentis",
+    "texto": "Conheça o Gentis, o sistema de gestão que reúne pessoas, finanças e estoque em um só lugar. Neste vídeo, vamos percorrer todas as telas e mostrar, na prática, como usar cada funcionalidade. Os dados exibidos são fictícios, criados apenas para demonstração."
+  },
+  {
+    "id": "login",
+    "secao": "Acesso",
+    "texto": "Tudo começa pela tela de login. O acesso é feito com e-mail ou nome de usuário e senha. As senhas são protegidas com criptografia, e a conta é bloqueada temporariamente após várias tentativas erradas."
+  },
+  {
+    "id": "dashboard",
+    "secao": "Dashboard",
+    "texto": "Depois de entrar, você chega ao painel principal. Aqui ficam os indicadores de pessoas, financeiro e estoque, todos calculados com os dados registrados no sistema."
+  },
+  {
+    "id": "dashboard-periodo",
+    "secao": "Dashboard",
+    "texto": "No topo, escolha o período: hoje, últimos sete dias, mês atual, mês anterior, ano atual ou um intervalo personalizado. Os cards e os gráficos se atualizam na hora."
+  },
+  {
+    "id": "dashboard-graficos",
+    "secao": "Dashboard",
+    "texto": "Descendo a página, você acompanha os funcionários por departamento e por cargo, receitas contra despesas, a evolução do saldo, os alertas de estoque e as atividades recentes da equipe."
+  },
+  {
+    "id": "menu",
+    "secao": "Navegação",
+    "texto": "O menu lateral é organizado por módulos, que podem ficar abertos ao mesmo tempo. Para ganhar espaço, recolha o menu no modo minimalista, só com ícones. No sino, ficam as notificações de estoque baixo e de contas vencidas."
+  },
+  {
+    "id": "rh-lista",
+    "secao": "RH · Funcionários",
+    "texto": "No módulo de RH, a lista de funcionários mostra matrícula, CPF, cargo, departamento, as datas de admissão e desligamento e a situação de cada pessoa. Dá para pesquisar por nome, CPF, cargo ou departamento, e filtrar por situação e período."
+  },
+  {
+    "id": "rh-novo",
+    "secao": "RH · Novo funcionário",
+    "texto": "Para cadastrar um profissional, clique em Novo funcionário. O formulário reúne os dados pessoais, o endereço, com preenchimento automático pelo CEP, e os dados profissionais, como número da folha, PIS, cargo e departamento."
+  },
+  {
+    "id": "rh-vt",
+    "secao": "RH · Novo funcionário",
+    "texto": "Informe também se a pessoa é optante pelo vale-transporte. Com a data de admissão preenchida, o funcionário já entra como ativo. O CPF é validado, e o sistema não aceita cadastros duplicados."
+  },
+  {
+    "id": "rh-ficha",
+    "secao": "RH · Ficha do funcionário",
+    "texto": "Ao salvar, abre-se a ficha do funcionário, com a situação do vínculo em destaque, as datas de admissão e desligamento, e todo o histórico de alterações."
+  },
+  {
+    "id": "rh-desligar",
+    "secao": "RH · Desligamento",
+    "texto": "O desligamento é feito na própria ficha. Basta informar a data e o motivo e confirmar. Os dados são preservados, a operação entra no histórico, e a data do desligamento passa a aparecer no cadastro."
+  },
+  {
+    "id": "rh-cadastros",
+    "secao": "RH · Cargos e departamentos",
+    "texto": "Em Cargos e departamentos, você mantém as opções usadas nos formulários. Itens já utilizados podem ser inativados, mas nunca apagados."
+  },
+  {
+    "id": "rh-relatorios",
+    "secao": "RH · Relatórios",
+    "texto": "Os relatórios de RH trazem funcionários ativos e desligados, admissões e desligamentos por período, e os dados cadastrais completos. Todos podem ser exportados para planilha ou impressos."
+  },
+  {
+    "id": "fin-visao",
+    "secao": "Financeiro",
+    "texto": "No Financeiro, a visão geral separa com clareza os valores previstos, realizados e vencidos. O resultado exibido é o do período, e não um saldo bancário."
+  },
+  {
+    "id": "fin-receita",
+    "secao": "Financeiro · Receitas",
+    "texto": "Para registrar uma receita, clique em Nova receita e informe a descrição, a categoria, o valor e as datas de competência e de vencimento. Também é possível anexar o comprovante ou criar parcelas mensais."
+  },
+  {
+    "id": "fin-baixa",
+    "secao": "Financeiro · Recebimento",
+    "texto": "Quando o dinheiro entrar, registre o recebimento. O sistema grava a data efetiva e o responsável, e impede baixas em duplicidade."
+  },
+  {
+    "id": "fin-despesas",
+    "secao": "Financeiro · Despesas",
+    "texto": "Em Despesas, filtre por situação para ver, por exemplo, as contas vencidas, destacadas em vermelho."
+  },
+  {
+    "id": "fin-categorias",
+    "secao": "Financeiro · Categorias",
+    "texto": "As categorias de receitas e despesas são configuráveis. As que já têm lançamentos só podem ser inativadas."
+  },
+  {
+    "id": "fin-relatorios",
+    "secao": "Financeiro · Relatórios",
+    "texto": "Nos relatórios financeiros, você encontra contas a pagar e a receber, contas vencidas, fluxo de caixa, resultado por período e a análise por categoria."
+  },
+  {
+    "id": "est-produtos",
+    "secao": "Estoque · Produtos",
+    "texto": "No Estoque, a lista de produtos mostra a quantidade disponível, o estoque mínimo, o custo médio e o valor em estoque, com alertas para itens abaixo do mínimo ou zerados."
+  },
+  {
+    "id": "est-novo",
+    "secao": "Estoque · Novo produto",
+    "texto": "No cadastro do produto, o código interno é gerado automaticamente, e você já pode informar a quantidade inicial."
+  },
+  {
+    "id": "est-entrada",
+    "secao": "Estoque · Entrada",
+    "texto": "Entradas, saídas e ajustes são feitos direto na lista, pelos botões de cada produto. Na entrada, informe a quantidade, o custo e a nota fiscal. O custo médio é recalculado na hora."
+  },
+  {
+    "id": "est-saida",
+    "secao": "Estoque · Saída",
+    "texto": "Na saída, o sistema não permite retirar mais do que o saldo disponível. Com a quantidade correta, a saída é registrada e o saldo é atualizado."
+  },
+  {
+    "id": "est-movimentacoes",
+    "secao": "Estoque · Movimentações",
+    "texto": "Todas as movimentações ficam registradas, com saldo anterior, saldo posterior, motivo e responsável, e podem ser filtradas por produto, tipo, período e usuário."
+  },
+  {
+    "id": "cfg-usuarios",
+    "secao": "Configurações · Usuários",
+    "texto": "Em Configurações, o administrador gerencia os usuários. Um novo usuário pode ser criado sem permissões, e o perfil é definido depois. No primeiro acesso, a troca de senha é obrigatória."
+  },
+  {
+    "id": "cfg-perfis",
+    "secao": "Configurações · Perfis",
+    "texto": "Os perfis definem o que cada pessoa pode ver e fazer, por módulo e por operação. As permissões também são verificadas no servidor e valem imediatamente."
+  },
+  {
+    "id": "cfg-empresa",
+    "secao": "Configurações · Dados da empresa",
+    "texto": "Em Dados da empresa, cadastre a razão social, o nome fantasia, o CNPJ, que é validado, o endereço, os contatos e o logotipo. Essas informações passam a identificar a empresa no sistema."
+  },
+  {
+    "id": "impressao",
+    "secao": "Relatórios · Impressão",
+    "texto": "E aparecem no cabeçalho dos relatórios impressos, junto com o título, o período, a data de emissão e o responsável. A tabela sai formatada para papel, em modo paisagem."
+  },
+  {
+    "id": "cfg-auditoria",
+    "secao": "Configurações · Auditoria",
+    "texto": "A auditoria registra quem fez o quê e quando. Esses registros não podem ser alterados."
+  },
+  {
+    "id": "cfg-backup",
+    "secao": "Configurações · Backup",
+    "texto": "Na área de backup, você gera cópias reais do banco de dados e dos anexos, verifica a integridade, faz o download ou restaura quando for preciso."
+  },
+  {
+    "id": "tema",
+    "secao": "Preferências",
+    "texto": "Pelo menu do usuário, você altera a sua senha. E o ícone da lua alterna entre os temas claro e escuro."
+  },
+  {
+    "id": "encerramento",
+    "secao": "Gentis",
+    "texto": "Esse é o Gentis: simples, seguro e completo para a gestão de pessoas e do seu negócio. Obrigada por assistir!"
+  }
+]

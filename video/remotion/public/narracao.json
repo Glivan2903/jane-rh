@@ -1,0 +1,573 @@
+[
+ {
+  "id": "abertura",
+  "secao": "Gentis",
+  "texto": "Conheça o Gentis, o sistema de gestão que reúne pessoas, finanças e estoque em um só lugar. Neste vídeo, vamos percorrer todas as telas e mostrar, na prática, como usar cada funcionalidade. Os dados exibidos são fictícios, criados apenas para demonstração.",
+  "duracao": 16.18,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 5.6269232,
+    "texto": "Conheça o Gentis, o sistema de gestão que reúne pessoas, finanças e estoque em um só lugar."
+   },
+   {
+    "inicio": 5.5769232,
+    "fim": 11.2740387,
+    "texto": "Neste vídeo, vamos percorrer todas as telas e mostrar, na prática, como usar cada funcionalidade."
+   },
+   {
+    "inicio": 11.2740388,
+    "fim": 16.1298082,
+    "texto": "Os dados exibidos são fictícios, criados apenas para demonstração."
+   }
+  ]
+ },
+ {
+  "id": "login",
+  "secao": "Acesso",
+  "texto": "Tudo começa pela tela de login. O acesso é feito com e-mail ou nome de usuário e senha. As senhas são protegidas com criptografia, e a conta é bloqueada temporariamente após várias tentativas erradas.",
+  "duracao": 12.74,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 2.1052885,
+    "texto": "Tudo começa pela tela de login."
+   },
+   {
+    "inicio": 2.0552885,
+    "fim": 5.3966347,
+    "texto": "O acesso é feito com e-mail ou nome de usuário e senha."
+   },
+   {
+    "inicio": 5.3966348,
+    "fim": 12.6802889,
+    "texto": "As senhas são protegidas com criptografia, e a conta é bloqueada temporariamente após várias tentativas erradas."
+   }
+  ]
+ },
+ {
+  "id": "dashboard",
+  "secao": "Dashboard",
+  "texto": "Depois de entrar, você chega ao painel principal. Aqui ficam os indicadores de pessoas, financeiro e estoque, todos calculados com os dados registrados no sistema.",
+  "duracao": 10.3,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 2.9225962,
+    "texto": "Depois de entrar, você chega ao painel principal."
+   },
+   {
+    "inicio": 2.8725962,
+    "fim": 10.2403849,
+    "texto": "Aqui ficam os indicadores de pessoas, financeiro e estoque, todos calculados com os dados registrados no sistema."
+   }
+  ]
+ },
+ {
+  "id": "dashboard-periodo",
+  "secao": "Dashboard",
+  "texto": "No topo, escolha o período: hoje, últimos sete dias, mês atual, mês anterior, ano atual ou um intervalo personalizado. Os cards e os gráficos se atualizam na hora.",
+  "duracao": 10.99,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 7.694231,
+    "texto": "No topo, escolha o período: hoje, últimos sete dias, mês atual, mês anterior, ano atual ou um intervalo personalizado."
+   },
+   {
+    "inicio": 7.644231,
+    "fim": 10.9375003,
+    "texto": "Os cards e os gráficos se atualizam na hora."
+   }
+  ]
+ },
+ {
+  "id": "dashboard-graficos",
+  "secao": "Dashboard",
+  "texto": "Descendo a página, você acompanha os funcionários por departamento e por cargo, receitas contra despesas, a evolução do saldo, os alertas de estoque e as atividades recentes da equipe.",
+  "duracao": 11.38,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 11.3221157,
+    "texto": "Descendo a página, você acompanha os funcionários por departamento e por cargo, receitas contra despesas, a evolução do saldo, os alertas de estoque e as atividades recentes da equipe."
+   }
+  ]
+ },
+ {
+  "id": "menu",
+  "secao": "Navegação",
+  "texto": "O menu lateral é organizado por módulos, que podem ficar abertos ao mesmo tempo. Para ganhar espaço, recolha o menu no modo minimalista, só com ícones. No sino, ficam as notificações de estoque baixo e de contas vencidas.",
+  "duracao": 14.14,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 5.0379809,
+    "texto": "O menu lateral é organizado por módulos, que podem ficar abertos ao mesmo tempo."
+   },
+   {
+    "inicio": 4.9879809,
+    "fim": 9.2187502,
+    "texto": "Para ganhar espaço, recolha o menu no modo minimalista, só com ícones."
+   },
+   {
+    "inicio": 9.2187503,
+    "fim": 14.0745197,
+    "texto": "No sino, ficam as notificações de estoque baixo e de contas vencidas."
+   }
+  ]
+ },
+ {
+  "id": "rh-lista",
+  "secao": "RH · Funcionários",
+  "texto": "No módulo de RH, a lista de funcionários mostra matrícula, CPF, cargo, departamento, as datas de admissão e desligamento e a situação de cada pessoa. Dá para pesquisar por nome, CPF, cargo ou departamento, e filtrar por situação e período.",
+  "duracao": 16.63,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 10.1461542,
+    "texto": "No módulo de RH, a lista de funcionários mostra matrícula, CPF, cargo, departamento, as datas de admissão e desligamento e a situação de cada pessoa."
+   },
+   {
+    "inicio": 10.0961542,
+    "fim": 16.586539,
+    "texto": "Dá para pesquisar por nome, CPF, cargo ou departamento, e filtrar por situação e período."
+   }
+  ]
+ },
+ {
+  "id": "rh-novo",
+  "secao": "RH · Novo funcionário",
+  "texto": "Para cadastrar um profissional, clique em Novo funcionário. O formulário reúne os dados pessoais, o endereço, com preenchimento automático pelo CEP, e os dados profissionais, como número da folha, PIS, cargo e departamento.",
+  "duracao": 13.34,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 3.2471155,
+    "texto": "Para cadastrar um profissional, clique em Novo funcionário."
+   },
+   {
+    "inicio": 3.1971155,
+    "fim": 13.2812504,
+    "texto": "O formulário reúne os dados pessoais, o endereço, com preenchimento automático pelo CEP, e os dados profissionais, como número da folha, PIS, cargo e departamento."
+   }
+  ]
+ },
+ {
+  "id": "rh-vt",
+  "secao": "RH · Novo funcionário",
+  "texto": "Informe também se a pessoa é optante pelo vale-transporte. Com a data de admissão preenchida, o funcionário já entra como ativo. O CPF é validado, e o sistema não aceita cadastros duplicados.",
+  "duracao": 12.24,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 3.535577,
+    "texto": "Informe também se a pessoa é optante pelo vale-transporte."
+   },
+   {
+    "inicio": 3.485577,
+    "fim": 7.4158656,
+    "texto": "Com a data de admissão preenchida, o funcionário já entra como ativo."
+   },
+   {
+    "inicio": 7.4158656,
+    "fim": 12.2115388,
+    "texto": "O CPF é validado, e o sistema não aceita cadastros duplicados."
+   }
+  ]
+ },
+ {
+  "id": "rh-ficha",
+  "secao": "RH · Ficha do funcionário",
+  "texto": "Ao salvar, abre-se a ficha do funcionário, com a situação do vínculo em destaque, as datas de admissão e desligamento, e todo o histórico de alterações.",
+  "duracao": 9.65,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 9.6538465,
+    "texto": "Ao salvar, abre-se a ficha do funcionário, com a situação do vínculo em destaque, as datas de admissão e desligamento, e todo o histórico de alterações."
+   }
+  ]
+ },
+ {
+  "id": "rh-desligar",
+  "secao": "RH · Desligamento",
+  "texto": "O desligamento é feito na própria ficha. Basta informar a data e o motivo e confirmar. Os dados são preservados, a operação entra no histórico, e a data do desligamento passa a aparecer no cadastro.",
+  "duracao": 12.46,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 2.5259616,
+    "texto": "O desligamento é feito na própria ficha."
+   },
+   {
+    "inicio": 2.4759616,
+    "fim": 5.2884617,
+    "texto": "Basta informar a data e o motivo e confirmar."
+   },
+   {
+    "inicio": 5.2884617,
+    "fim": 12.3918273,
+    "texto": "Os dados são preservados, a operação entra no histórico, e a data do desligamento passa a aparecer no cadastro."
+   }
+  ]
+ },
+ {
+  "id": "rh-cadastros",
+  "secao": "RH · Cargos e departamentos",
+  "texto": "Em Cargos e departamentos, você mantém as opções usadas nos formulários. Itens já utilizados podem ser inativados, mas nunca apagados.",
+  "duracao": 9.19,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 4.4850963,
+    "texto": "Em Cargos e departamentos, você mantém as opções usadas nos formulários."
+   },
+   {
+    "inicio": 4.4350963,
+    "fim": 9.1346157,
+    "texto": "Itens já utilizados podem ser inativados, mas nunca apagados."
+   }
+  ]
+ },
+ {
+  "id": "rh-relatorios",
+  "secao": "RH · Relatórios",
+  "texto": "Os relatórios de RH trazem funcionários ativos e desligados, admissões e desligamentos por período, e os dados cadastrais completos. Todos podem ser exportados para planilha ou impressos.",
+  "duracao": 12.34,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 8.4153849,
+    "texto": "Os relatórios de RH trazem funcionários ativos e desligados, admissões e desligamentos por período, e os dados cadastrais completos."
+   },
+   {
+    "inicio": 8.3653849,
+    "fim": 12.271635,
+    "texto": "Todos podem ser exportados para planilha ou impressos."
+   }
+  ]
+ },
+ {
+  "id": "fin-visao",
+  "secao": "Financeiro",
+  "texto": "No Financeiro, a visão geral separa com clareza os valores previstos, realizados e vencidos. O resultado exibido é o do período, e não um saldo bancário.",
+  "duracao": 9.55,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 5.5788463,
+    "texto": "No Financeiro, a visão geral separa com clareza os valores previstos, realizados e vencidos."
+   },
+   {
+    "inicio": 5.5288463,
+    "fim": 9.4951925,
+    "texto": "O resultado exibido é o do período, e não um saldo bancário."
+   }
+  ]
+ },
+ {
+  "id": "fin-receita",
+  "secao": "Financeiro · Receitas",
+  "texto": "Para registrar uma receita, clique em Nova receita e informe a descrição, a categoria, o valor e as datas de competência e de vencimento. Também é possível anexar o comprovante ou criar parcelas mensais.",
+  "duracao": 13.2,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 8.4394233,
+    "texto": "Para registrar uma receita, clique em Nova receita e informe a descrição, a categoria, o valor e as datas de competência e de vencimento."
+   },
+   {
+    "inicio": 8.3894233,
+    "fim": 13.1490388,
+    "texto": "Também é possível anexar o comprovante ou criar parcelas mensais."
+   }
+  ]
+ },
+ {
+  "id": "fin-baixa",
+  "secao": "Financeiro · Recebimento",
+  "texto": "Quando o dinheiro entrar, registre o recebimento. O sistema grava a data efetiva e o responsável, e impede baixas em duplicidade.",
+  "duracao": 8.38,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 2.7903847,
+    "texto": "Quando o dinheiro entrar, registre o recebimento."
+   },
+   {
+    "inicio": 2.7403847,
+    "fim": 8.3173079,
+    "texto": "O sistema grava a data efetiva e o responsável, e impede baixas em duplicidade."
+   }
+  ]
+ },
+ {
+  "id": "fin-despesas",
+  "secao": "Financeiro · Despesas",
+  "texto": "Em Despesas, filtre por situação para ver, por exemplo, as contas vencidas, destacadas em vermelho.",
+  "duracao": 6.5,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 6.5043271,
+    "texto": "Em Despesas, filtre por situação para ver, por exemplo, as contas vencidas, destacadas em vermelho."
+   }
+  ]
+ },
+ {
+  "id": "fin-categorias",
+  "secao": "Financeiro · Categorias",
+  "texto": "As categorias de receitas e despesas são configuráveis. As que já têm lançamentos só podem ser inativadas.",
+  "duracao": 7.22,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 3.6076924,
+    "texto": "As categorias de receitas e despesas são configuráveis."
+   },
+   {
+    "inicio": 3.5576924,
+    "fim": 7.1634617,
+    "texto": "As que já têm lançamentos só podem ser inativadas."
+   }
+  ]
+ },
+ {
+  "id": "fin-relatorios",
+  "secao": "Financeiro · Relatórios",
+  "texto": "Nos relatórios financeiros, você encontra contas a pagar e a receber, contas vencidas, fluxo de caixa, resultado por período e a análise por categoria.",
+  "duracao": 9.65,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 9.6413465,
+    "texto": "Nos relatórios financeiros, você encontra contas a pagar e a receber, contas vencidas, fluxo de caixa, resultado por período e a análise por categoria."
+   }
+  ]
+ },
+ {
+  "id": "est-produtos",
+  "secao": "Estoque · Produtos",
+  "texto": "No Estoque, a lista de produtos mostra a quantidade disponível, o estoque mínimo, o custo médio e o valor em estoque, com alertas para itens abaixo do mínimo ou zerados.",
+  "duracao": 10.8,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 10.7831734,
+    "texto": "No Estoque, a lista de produtos mostra a quantidade disponível, o estoque mínimo, o custo médio e o valor em estoque, com alertas para itens abaixo do mínimo ou zerados."
+   }
+  ]
+ },
+ {
+  "id": "est-novo",
+  "secao": "Estoque · Novo produto",
+  "texto": "No cadastro do produto, o código interno é gerado automaticamente, e você já pode informar a quantidade inicial.",
+  "duracao": 7.39,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 7.3937502,
+    "texto": "No cadastro do produto, o código interno é gerado automaticamente, e você já pode informar a quantidade inicial."
+   }
+  ]
+ },
+ {
+  "id": "est-entrada",
+  "secao": "Estoque · Entrada",
+  "texto": "Entradas, saídas e ajustes são feitos direto na lista, pelos botões de cada produto. Na entrada, informe a quantidade, o custo e a nota fiscal. O custo médio é recalculado na hora.",
+  "duracao": 11.88,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 5.3144232,
+    "texto": "Entradas, saídas e ajustes são feitos direto na lista, pelos botões de cada produto."
+   },
+   {
+    "inicio": 5.2644232,
+    "fim": 8.9543271,
+    "texto": "Na entrada, informe a quantidade, o custo e a nota fiscal."
+   },
+   {
+    "inicio": 8.9543272,
+    "fim": 11.8149042,
+    "texto": "O custo médio é recalculado na hora."
+   }
+  ]
+ },
+ {
+  "id": "est-saida",
+  "secao": "Estoque · Saída",
+  "texto": "Na saída, o sistema não permite retirar mais do que o saldo disponível. Com a quantidade correta, a saída é registrada e o saldo é atualizado.",
+  "duracao": 9.07,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 4.2927886,
+    "texto": "Na saída, o sistema não permite retirar mais do que o saldo disponível."
+   },
+   {
+    "inicio": 4.2427886,
+    "fim": 9.0264426,
+    "texto": "Com a quantidade correta, a saída é registrada e o saldo é atualizado."
+   }
+  ]
+ },
+ {
+  "id": "est-movimentacoes",
+  "secao": "Estoque · Movimentações",
+  "texto": "Todas as movimentações ficam registradas, com saldo anterior, saldo posterior, motivo e responsável, e podem ser filtradas por produto, tipo, período e usuário.",
+  "duracao": 10.32,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 10.3144234,
+    "texto": "Todas as movimentações ficam registradas, com saldo anterior, saldo posterior, motivo e responsável, e podem ser filtradas por produto, tipo, período e usuário."
+   }
+  ]
+ },
+ {
+  "id": "cfg-usuarios",
+  "secao": "Configurações · Usuários",
+  "texto": "Em Configurações, o administrador gerencia os usuários. Um novo usuário pode ser criado sem permissões, e o perfil é definido depois. No primeiro acesso, a troca de senha é obrigatória.",
+  "duracao": 12.05,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 3.6798078,
+    "texto": "Em Configurações, o administrador gerencia os usuários."
+   },
+   {
+    "inicio": 3.6298078,
+    "fim": 8.3533656,
+    "texto": "Um novo usuário pode ser criado sem permissões, e o perfil é definido depois."
+   },
+   {
+    "inicio": 8.3533656,
+    "fim": 12.0072118,
+    "texto": "No primeiro acesso, a troca de senha é obrigatória."
+   }
+  ]
+ },
+ {
+  "id": "cfg-perfis",
+  "secao": "Configurações · Perfis",
+  "texto": "Os perfis definem o que cada pessoa pode ver e fazer, por módulo e por operação. As permissões também são verificadas no servidor e valem imediatamente.",
+  "duracao": 9.77,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 4.7735578,
+    "texto": "Os perfis definem o que cada pessoa pode ver e fazer, por módulo e por operação."
+   },
+   {
+    "inicio": 4.7235578,
+    "fim": 9.7115387,
+    "texto": "As permissões também são verificadas no servidor e valem imediatamente."
+   }
+  ]
+ },
+ {
+  "id": "cfg-empresa",
+  "secao": "Configurações · Dados da empresa",
+  "texto": "Em Dados da empresa, cadastre a razão social, o nome fantasia, o CNPJ, que é validado, o endereço, os contatos e o logotipo. Essas informações passam a identificar a empresa no sistema.",
+  "duracao": 12.34,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 8.2831733,
+    "texto": "Em Dados da empresa, cadastre a razão social, o nome fantasia, o CNPJ, que é validado, o endereço, os contatos e o logotipo."
+   },
+   {
+    "inicio": 8.2331733,
+    "fim": 12.2956734,
+    "texto": "Essas informações passam a identificar a empresa no sistema."
+   }
+  ]
+ },
+ {
+  "id": "impressao",
+  "secao": "Relatórios · Impressão",
+  "texto": "E aparecem no cabeçalho dos relatórios impressos, junto com o título, o período, a data de emissão e o responsável. A tabela sai formatada para papel, em modo paisagem.",
+  "duracao": 10.61,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 6.7326925,
+    "texto": "E aparecem no cabeçalho dos relatórios impressos, junto com o título, o período, a data de emissão e o responsável."
+   },
+   {
+    "inicio": 6.6826925,
+    "fim": 10.5649041,
+    "texto": "A tabela sai formatada para papel, em modo paisagem."
+   }
+  ]
+ },
+ {
+  "id": "cfg-auditoria",
+  "secao": "Configurações · Auditoria",
+  "texto": "A auditoria registra quem fez o quê e quando. Esses registros não podem ser alterados.",
+  "duracao": 6.02,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 2.910577,
+    "texto": "A auditoria registra quem fez o quê e quando."
+   },
+   {
+    "inicio": 2.860577,
+    "fim": 5.9615386,
+    "texto": "Esses registros não podem ser alterados."
+   }
+  ]
+ },
+ {
+  "id": "cfg-backup",
+  "secao": "Configurações · Backup",
+  "texto": "Na área de backup, você gera cópias reais do banco de dados e dos anexos, verifica a integridade, faz o download ou restaura quando for preciso.",
+  "duracao": 9.48,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 9.4730772,
+    "texto": "Na área de backup, você gera cópias reais do banco de dados e dos anexos, verifica a integridade, faz o download ou restaura quando for preciso."
+   }
+  ]
+ },
+ {
+  "id": "tema",
+  "secao": "Preferências",
+  "texto": "Pelo menu do usuário, você altera a sua senha. E o ícone da lua alterna entre os temas claro e escuro.",
+  "duracao": 6.7,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 2.8024039,
+    "texto": "Pelo menu do usuário, você altera a sua senha."
+   },
+   {
+    "inicio": 2.7524039,
+    "fim": 6.6346155,
+    "texto": "E o ícone da lua alterna entre os temas claro e escuro."
+   }
+  ]
+ },
+ {
+  "id": "encerramento",
+  "secao": "Gentis",
+  "texto": "Esse é o Gentis: simples, seguro e completo para a gestão de pessoas e do seu negócio. Obrigada por assistir!",
+  "duracao": 7.3,
+  "frases": [
+   {
+    "inicio": 0.1,
+    "fim": 5.1942309,
+    "texto": "Esse é o Gentis: simples, seguro e completo para a gestão de pessoas e do seu negócio."
+   },
+   {
+    "inicio": 5.1442309,
+    "fim": 7.2355771,
+    "texto": "Obrigada por assistir!"
+   }
+  ]
+ }
+]

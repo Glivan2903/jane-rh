@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+server/storage
+video/.venv
+video/node_modules
+video/remotion/node_modules
+video/captura
+video/remotion/public/tela.mp4
+video/captura-anterior

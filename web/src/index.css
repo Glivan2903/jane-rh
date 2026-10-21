@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paleta Gentis: teal (confiança/cuidado) + coral (calor humano) sobre navy. Canais RGB para suportar opacidade. */
+:root {
+  --background: 243 247 248; --foreground: 11 31 46; --card: 255 255 255;
+  --muted: 232 240 242; --muted-foreground: 91 111 124; --border: 218 228 232;
+  --primary: 15 118 110; --primary-foreground: 255 255 255;
+  --accent: 255 122 89; --accent-foreground: 60 18 8;
+  --success: 22 128 78; --warning: 180 110 6; --danger: 205 50 50; --info: 37 99 180;
+  --sidebar: 11 31 46; --sidebar-foreground: 226 238 241; --sidebar-muted: 124 150 164;
+}
+.dark {
+  --background: 8 22 33; --foreground: 232 241 244; --card: 15 37 52;
+  --muted: 22 48 66; --muted-foreground: 140 163 176; --border: 31 60 79;
+  --primary: 45 212 191; --primary-foreground: 6 31 38;
+  --accent: 255 138 108; --accent-foreground: 40 12 5;
+  --success: 74 222 128; --warning: 251 191 36; --danger: 248 113 113; --info: 96 165 250;
+  --sidebar: 6 17 26; --sidebar-foreground: 226 238 241; --sidebar-muted: 124 150 164;
+}
+
+html, body, #root { height: 100%; }
+
+/* Rolagem fina e discreta (padrão Jet-One) */
+* { scrollbar-width: thin; scrollbar-color: rgb(var(--muted-foreground) / .35) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgb(var(--muted-foreground) / .3); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--muted-foreground) / .55); }
+.sb-scroll { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / .18) transparent; }
+.sb-scroll::-webkit-scrollbar { width: 2px; }
+.sb-scroll::-webkit-scrollbar-thumb { background: rgb(255 255 255 / .2); }
+.sb-collapsed.sb-scroll { scrollbar-width: none; }
+.sb-collapsed.sb-scroll::-webkit-scrollbar { display: none; }
+body { @apply bg-background text-foreground font-sans antialiased; }
+* { @apply border-border; }
+:focus-visible { outline: 2px solid rgb(var(--primary)); outline-offset: 2px; }
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]; }
+  .btn-primary { @apply btn bg-primary text-primary-foreground hover:brightness-110 shadow-sm; }
+  .btn-accent { @apply btn bg-accent text-accent-foreground hover:brightness-105; }
+  .btn-outline { @apply btn border bg-card hover:bg-muted; }
+  .btn-ghost { @apply btn hover:bg-muted; }
+  .btn-danger { @apply btn bg-danger text-white hover:brightness-110; }
+  .btn-sm { @apply px-3 py-1.5 text-xs; }
+  .input { @apply w-full rounded-lg border bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/70 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60; }
+  .input-error { @apply border-danger focus:border-danger focus:ring-danger/30; }
+  .card { @apply rounded-xl border bg-card shadow-sm; }
+  .th { @apply px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap; }
+  .td { @apply px-3 py-2.5 text-sm; }
+}
+
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+.skeleton { position: relative; overflow: hidden; @apply rounded bg-muted; }
+.skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgb(255 255 255 / .35), transparent); animation: shimmer 1.4s infinite; }
+@media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; } }
+
+@media print {
+  aside, header, .no-print, [data-toast] { display: none !important; }
+  body, main { background: #fff !important; color: #000 !important; }
+  main { padding: 0 !important; overflow: visible !important; }
+  .card { box-shadow: none !important; border-color: #ccc !important; }
+  .print-only { display: block !important; }
+  table { font-size: 11px; }
+}
+.print-only { display: none; }
+
+/* ---- Impressão de relatórios ---- */
+@media print {
+  @page { size: A4 landscape; margin: 12mm 10mm 14mm; }
+  html, body, #root { height: auto !important; overflow: visible !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-header { display: block !important; color: #000; font-family: 'Plus Jakarta Sans', Arial, sans-serif; }
+  .print-footer { display: block !important; position: fixed; bottom: -8mm; left: 0; right: 0; text-align: center; font-size: 9px; color: #555; }
+  .card { border: 0 !important; border-radius: 0 !important; }
+  .report-table { border-collapse: collapse; font-size: 10px; }
+  .report-table thead { display: table-header-group; }
+  .report-table tr { break-inside: avoid; }
+  .report-table th { background: #e8eef0 !important; color: #000 !important; border: 1px solid #b9c6cc; padding: 4px 6px; font-size: 9px; }
+  .report-table td { border: 1px solid #d5dee2; padding: 3px 6px; color: #000; }
+  .report-table tbody tr:nth-child(even) td { background: #f6f9fa !important; }
+}

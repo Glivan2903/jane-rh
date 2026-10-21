@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: jane-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-jane}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+      POSTGRES_DB: ${DB_NAME:-jane}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5439}:5432"
+    volumes:
+      - jane_pgdata:/var/lib/postgresql/data
+volumes:
+  jane_pgdata:

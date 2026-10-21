@@ -1,0 +1,41 @@
+# Stack para Portainer (Repository ou Web editor com imagem já publicada).
+# Variáveis obrigatórias: DB_PASSWORD. Opcional: DB_USER, DB_NAME, APP_PORT, COOKIE_SECURE.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-jane}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-jane}
+    volumes:
+      - gentis_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-jane} -d ${DB_NAME:-jane}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    image: gentis-app:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgres://${DB_USER:-jane}:${DB_PASSWORD}@db:5432/${DB_NAME:-jane}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_HOURS: 8
+      BACKUP_AUTO_HOURS: ${BACKUP_AUTO_HOURS:-24}
+      BACKUP_KEEP: 14
+    volumes:
+      - gentis_storage:/app/server/storage
+    ports:
+      - "${APP_PORT:-3001}:3001"
+
+volumes:
+  gentis_pgdata:
+  gentis_storage:

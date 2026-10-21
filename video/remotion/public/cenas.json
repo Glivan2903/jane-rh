@@ -1,0 +1,125 @@
+{
+ "duracao": 351.436,
+ "cenas": [
+  {
+   "id": "login",
+   "inicio": 0.273
+  },
+  {
+   "id": "dashboard",
+   "inicio": 13.814
+  },
+  {
+   "id": "dashboard-periodo",
+   "inicio": 24.918
+  },
+  {
+   "id": "dashboard-graficos",
+   "inicio": 36.709
+  },
+  {
+   "id": "menu",
+   "inicio": 48.893
+  },
+  {
+   "id": "rh-lista",
+   "inicio": 64.016
+  },
+  {
+   "id": "rh-novo",
+   "inicio": 81.447
+  },
+  {
+   "id": "rh-vt",
+   "inicio": 95.588
+  },
+  {
+   "id": "rh-ficha",
+   "inicio": 108.631
+  },
+  {
+   "id": "rh-desligar",
+   "inicio": 119.081
+  },
+  {
+   "id": "rh-cadastros",
+   "inicio": 132.342
+  },
+  {
+   "id": "rh-relatorios",
+   "inicio": 142.333
+  },
+  {
+   "id": "fin-visao",
+   "inicio": 155.473
+  },
+  {
+   "id": "fin-receita",
+   "inicio": 165.826
+  },
+  {
+   "id": "fin-baixa",
+   "inicio": 180.162
+  },
+  {
+   "id": "fin-despesas",
+   "inicio": 189.344
+  },
+  {
+   "id": "fin-categorias",
+   "inicio": 196.645
+  },
+  {
+   "id": "fin-relatorios",
+   "inicio": 204.665
+  },
+  {
+   "id": "est-produtos",
+   "inicio": 215.116
+  },
+  {
+   "id": "est-novo",
+   "inicio": 226.718
+  },
+  {
+   "id": "est-entrada",
+   "inicio": 237.48
+  },
+  {
+   "id": "est-saida",
+   "inicio": 250.162
+  },
+  {
+   "id": "est-movimentacoes",
+   "inicio": 260.033
+  },
+  {
+   "id": "cfg-usuarios",
+   "inicio": 271.16
+  },
+  {
+   "id": "cfg-perfis",
+   "inicio": 284.011
+  },
+  {
+   "id": "cfg-empresa",
+   "inicio": 294.585
+  },
+  {
+   "id": "impressao",
+   "inicio": 313.831
+  },
+  {
+   "id": "cfg-auditoria",
+   "inicio": 325.243
+  },
+  {
+   "id": "cfg-backup",
+   "inicio": 332.063
+  },
+  {
+   "id": "tema",
+   "inicio": 342.344
+  }
+ ]
+}
