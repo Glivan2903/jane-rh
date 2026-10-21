@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Boxes, CheckCircle2, Clock, DollarSign, PackageX, Scale, TrendingDown, TrendingUp, UserMinus, UserPlus, Users, Wallet, Activity } from 'lucide-react';
-import { ErrorBox, PageHeader, Skeleton, StatCard, Badge, useReveal, Empty } from '../components/ui';
+import { ErrorBox, PageHeader, Skeleton, StatCard, Badge, useReveal, Empty, Tabs } from '../components/ui';
+import { UpcomingBills } from '../components/UpcomingBills';
 import { PeriodPicker, type Period } from '../components/PeriodPicker';
 import { ChartCard, C, CountBars, Donut, HBars, MoneyBars, MoneyLine } from '../components/charts';
 import { useAuth } from '../lib/app';
@@ -20,25 +21,62 @@ interface Dash {
 const int = (n: number) => String(Math.round(n));
 const MOD_TONE = { rh: 'info', financeiro: 'success', estoque: 'warning', config: 'neutral' } as const;
 
-const Title = ({ icon: I, children }: { icon: typeof Users; children: string }) => <h2 className="mb-3 mt-2 flex items-center gap-2 font-display text-base font-bold"><I className="h-4 w-4 text-primary" />{children}</h2>;
+const Title = ({ icon: I, children }: { icon: typeof Users; children: string }) => <h2 className="mb-2 mt-2 flex items-center gap-2 font-display text-base font-bold"><I className="h-4 w-4 text-primary" />{children}</h2>;
+
+type Aba = 'geral' | 'financeiro' | 'pessoas' | 'estoque';
 
 export default function Dashboard() {
-  const { me } = useAuth();
+  const { me, can } = useAuth();
+  const [sp, setSp] = useSearchParams();
+  const abas = ([['geral', 'Geral', true], ['financeiro', 'Financeiro', can('fin.view')], ['pessoas', 'Pessoas', can('rh.view')], ['estoque', 'Estoque', can('est.view')]] as const).filter((a) => a[2]).map((a) => ({ id: a[0] as Aba, label: a[1] }));
+  const aba: Aba = abas.some((a) => a.id === sp.get('aba')) ? (sp.get('aba') as Aba) : 'geral';
+  const setAba = (a: Aba) => setSp(a === 'geral' ? {} : { aba: a }, { replace: true });
   const [p, setP] = useState<Period>(presetRange('mes'));
   const { data, loading, error, reload } = useFetch<Dash>('/dashboard', { period: 'custom', ...p });
-  const ref = useReveal<HTMLDivElement>([!!data, p.from, p.to]);
+  const ref = useReveal<HTMLDivElement>([!!data, p.from, p.to, aba]);
   const { rh, financeiro: fin, estoque: est } = data ?? {};
 
   return (
     <div>
       <PageHeader title={`Olá, ${me!.name.split(' ')[0]}`} subtitle="Resumo operacional calculado com os dados registrados no sistema." actions={<PeriodPicker value={p} onChange={setP} />} />
+      <Tabs value={aba} onChange={setAba} tabs={abas} />
       {error ? <ErrorBox message={error} onRetry={reload} /> : loading && !data ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-24" />)}</div>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-24" />)}</div>
       ) : data && (
         <div ref={ref} className="space-y-2">
-          {rh && (<>
+          {aba === 'geral' && (<>
+            {rh && (<>
+              <Title icon={Users}>Pessoas</Title>
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+                <StatCard label="Funcionários ativos" value={rh.ativos} format={int} icon={Users} to="/rh/funcionarios" />
+                <StatCard label="Admissões no período" value={rh.admissoes} format={int} icon={UserPlus} tone="success" />
+                <StatCard label="Desligamentos no período" value={rh.desligamentos} format={int} icon={UserMinus} tone="accent" />
+                <StatCard label="Desligados (total)" value={rh.desligadosTotal} format={int} icon={UserMinus} tone="danger" to="/rh/funcionarios" />
+              </div>
+            </>)}
+            {fin && (<>
+              <Title icon={Wallet}>Financeiro</Title>
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+                <StatCard label="Saldo do período (previsto)" value={fin.saldoPrevisto} format={brl} icon={Scale} tone={fin.saldoPrevisto >= 0 ? 'primary' : 'danger'} />
+                <StatCard label="Saldo realizado" value={fin.saldoRealizado} format={brl} icon={DollarSign} tone={fin.saldoRealizado >= 0 ? 'primary' : 'danger'} />
+                <StatCard label="A pagar (pendente)" value={fin.despesas.aPagar} format={brl} icon={Clock} tone="warning" to="/financeiro/despesas" />
+                <StatCard label="Vencidas a pagar" value={fin.vencidas.pagar} format={brl} icon={AlertTriangle} tone="danger" to="/financeiro/despesas?status=vencida" />
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2"><UpcomingBills /><ChartCard title="Receitas × despesas" subtitle="Realizado por mês"><MoneyBars data={fin.monthly} bars={[{ key: 'recebido', name: 'Recebido', color: C.teal }, { key: 'pago', name: 'Pago', color: C.coral }]} /></ChartCard></div>
+            </>)}
+            {est && (<>
+              <Title icon={Boxes}>Estoque</Title>
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
+                <StatCard label="Produtos cadastrados" value={est.produtos} format={int} icon={Boxes} to="/estoque" />
+                <StatCard label="Valor estimado" value={est.valorEstimado} format={brl} icon={DollarSign} tone="success" />
+                <StatCard label="Abaixo do mínimo" value={est.abaixoMinimo} format={int} icon={AlertTriangle} tone="warning" to="/estoque?stockStatus=baixo" />
+                <StatCard label="Sem estoque" value={est.semEstoque} format={int} icon={PackageX} tone="danger" to="/estoque?stockStatus=sem_estoque" />
+              </div>
+            </>)}
+          </>)}
+          {aba === 'pessoas' && rh && (<>
             <Title icon={Users}>Pessoas</Title>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
               <StatCard label="Funcionários ativos" value={rh.ativos} format={int} icon={Users} to="/rh/funcionarios" />
               <StatCard label="Desligados (total)" value={rh.desligadosTotal} format={int} icon={UserMinus} tone="danger" to="/rh/funcionarios" />
               <StatCard label="Admissões no período" value={rh.admissoes} format={int} icon={UserPlus} tone="success" />
@@ -51,9 +89,9 @@ export default function Dashboard() {
             </div>
           </>)}
 
-          {fin && (<>
+          {aba === 'financeiro' && fin && (<>
             <Title icon={Wallet}>Financeiro</Title>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
               <StatCard label="Receitas no período (previstas)" value={fin.receitas.previsto} format={brl} icon={TrendingUp} tone="success" to="/financeiro/receitas" />
               <StatCard label="Despesas no período (previstas)" value={fin.despesas.previsto} format={brl} icon={TrendingDown} tone="danger" to="/financeiro/despesas" />
               <StatCard label="Saldo do período (previsto)" value={fin.saldoPrevisto} format={brl} icon={Scale} tone={fin.saldoPrevisto >= 0 ? 'primary' : 'danger'} hint="Receitas − despesas" />
@@ -63,7 +101,8 @@ export default function Dashboard() {
               <StatCard label="A receber (pendente)" value={fin.receitas.aReceber} format={brl} icon={Clock} tone="warning" to="/financeiro/receitas" />
               <StatCard label="A pagar (pendente)" value={fin.despesas.aPagar} format={brl} icon={Clock} tone="warning" to="/financeiro/despesas" />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <UpcomingBills />
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
               <StatCard label="Contas vencidas a pagar" value={fin.vencidas.pagar} format={brl} icon={AlertTriangle} tone="danger" to="/financeiro/despesas?status=vencida" />
               <StatCard label="Contas vencidas a receber" value={fin.vencidas.receber} format={brl} icon={AlertTriangle} tone="danger" to="/financeiro/receitas?status=vencida" />
             </div>
@@ -73,9 +112,9 @@ export default function Dashboard() {
             </div>
           </>)}
 
-          {est && (<>
+          {aba === 'estoque' && est && (<>
             <Title icon={Boxes}>Estoque</Title>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
               <StatCard label="Produtos cadastrados" value={est.produtos} format={int} icon={Boxes} to="/estoque" />
               <StatCard label="Itens em estoque" value={est.itensEmEstoque} format={(n) => num(n, 0)} icon={ArrowDownToLine} tone="info" />
               <StatCard label="Valor estimado (custo médio)" value={est.valorEstimado} format={brl} icon={DollarSign} tone="success" />
@@ -95,6 +134,7 @@ export default function Dashboard() {
             </div>
           </>)}
 
+          {aba === 'geral' && (<>
           <Title icon={Activity}>Atividades recentes</Title>
           <section data-reveal className="card p-2">
             {data.atividades.length === 0 ? <Empty title="Nenhuma atividade registrada ainda" hint="As operações realizadas no sistema aparecerão aqui." /> : (
@@ -102,7 +142,7 @@ export default function Dashboard() {
                 <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
                   <Badge tone={MOD_TONE[a.module as keyof typeof MOD_TONE] ?? 'neutral'}>{a.module}</Badge><span className="min-w-0 flex-1">{a.summary}</span>
                   <span className="text-xs text-muted-foreground">{a.userName ?? 'sistema'} · {dmyTime(a.at)}</span></li>))}</ul>)}
-          </section>
+          </section></>)}
           {!rh && !fin && !est && <Empty title="Seu perfil não tem acesso aos indicadores" hint="Peça a um administrador para ajustar suas permissões." action={<Link to="/perfil/senha" className="btn-outline">Alterar senha</Link>} />}
         </div>
       )}

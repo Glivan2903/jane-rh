@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { pool, tx } from '../db.js';
 import { audit } from '../audit.js';
+import { getSettings } from '../services/settings.js';
 import { PASSWORD_RULE, requireAuth, strongPassword } from '../auth.js';
 import { HttpError, Where, h, likeEsc, listParams, parse, qstr, reqStr, optStr } from '../util.js';
 
@@ -184,14 +185,26 @@ configRouter.get('/audit', requireAuth('cfg.audit'), h(async (req, res) => {
 }));
 
 // ---------- Parâmetros ----------
-configRouter.get('/settings', requireAuth('cfg.settings'), h(async (_req, res) => {
-  const rows = (await pool.query('SELECT key, value FROM settings')).rows;
-  res.json(Object.fromEntries(rows.map((r) => [r.key, r.value])));
-}));
+configRouter.get('/settings', requireAuth('cfg.settings'), h(async (_req, res) => { res.json(await getSettings()); }));
+
+const settingsSchema = z.object({
+  allow_negative_stock: z.boolean(),
+  notify_bills_enabled: z.boolean(),
+  notify_bills_days: z.number().int().min(0, 'Mínimo 0 dia').max(90, 'Máximo 90 dias'),
+  notify_overdue_enabled: z.boolean(),
+  notify_receivables: z.boolean(),
+  notify_stock_enabled: z.boolean(),
+  notify_refresh_minutes: z.number().int().min(1, 'Mínimo 1 minuto').max(60, 'Máximo 60 minutos'),
+  upcoming_list_size: z.number().int().min(3, 'Mínimo 3').max(30, 'Máximo 30'),
+}).partial();
 
 configRouter.put('/settings', requireAuth('cfg.settings'), h(async (req, res) => {
-  const d = parse(z.object({ allow_negative_stock: z.boolean() }), req.body);
-  await pool.query(`INSERT INTO settings (key,value) VALUES ('allow_negative_stock',$1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, [JSON.stringify(d.allow_negative_stock)]);
-  await audit(req, { action: 'editar', module: 'config', entity: 'settings', summary: `Saldo negativo de estoque ${d.allow_negative_stock ? 'permitido' : 'bloqueado'}` });
+  const d = parse(settingsSchema, req.body);
+  const before = await getSettings();
+  for (const [k, v] of Object.entries(d)) {
+    await pool.query(`INSERT INTO settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, [k, JSON.stringify(v)]);
+  }
+  const changed = Object.entries(d).filter(([k, v]) => before[k as keyof typeof before] !== v).map(([k]) => k);
+  await audit(req, { action: 'editar', module: 'config', entity: 'settings', summary: changed.length ? `Parâmetros alterados: ${changed.join(', ')}` : 'Parâmetros salvos sem alterações', details: { campos: changed } });
   res.json({ ok: true });
 }));

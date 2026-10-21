@@ -21,6 +21,9 @@
 }
 
 html, body, #root { height: 100%; }
+html { -webkit-text-size-adjust: 100%; }
+body { overflow-x: hidden; }
+@media (max-width: 639px) { html { font-size: 15px; } }
 
 /* Rolagem fina e discreta (padrão Jet-One) */
 * { scrollbar-width: thin; scrollbar-color: rgb(var(--muted-foreground) / .35) transparent; }
@@ -38,18 +41,18 @@ body { @apply bg-background text-foreground font-sans antialiased; }
 :focus-visible { outline: 2px solid rgb(var(--primary)); outline-offset: 2px; }
 
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]; }
+  .btn { @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold sm:gap-2 sm:px-4 sm:py-2 sm:text-sm transition disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]; }
   .btn-primary { @apply btn bg-primary text-primary-foreground hover:brightness-110 shadow-sm; }
   .btn-accent { @apply btn bg-accent text-accent-foreground hover:brightness-105; }
   .btn-outline { @apply btn border bg-card hover:bg-muted; }
   .btn-ghost { @apply btn hover:bg-muted; }
   .btn-danger { @apply btn bg-danger text-white hover:brightness-110; }
-  .btn-sm { @apply px-3 py-1.5 text-xs; }
-  .input { @apply w-full rounded-lg border bg-card px-3 py-2 text-sm placeholder:text-muted-foreground/70 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60; }
+  .btn-sm { @apply px-2.5 py-1 text-xs sm:px-3 sm:py-1.5; }
+  .input { @apply w-full rounded-lg border bg-card px-2.5 py-1.5 text-[13px] sm:px-3 sm:py-2 sm:text-sm placeholder:text-muted-foreground/70 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60; }
   .input-error { @apply border-danger focus:border-danger focus:ring-danger/30; }
-  .card { @apply rounded-xl border bg-card shadow-sm; }
-  .th { @apply px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap; }
-  .td { @apply px-3 py-2.5 text-sm; }
+  .card { @apply rounded-xl border bg-card shadow-sm; min-width: 0; }
+  .th { @apply px-2 py-2 text-left text-[11px] sm:px-3 sm:py-2.5 sm:text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap; }
+  .td { @apply px-2 py-2 text-[13px] sm:px-3 sm:py-2.5 sm:text-sm; }
 }
 
 @keyframes shimmer { 100% { transform: translateX(100%); } }
@@ -69,7 +72,7 @@ body { @apply bg-background text-foreground font-sans antialiased; }
 
 /* ---- Impressão de relatórios ---- */
 @media print {
-  @page { size: A4 landscape; margin: 12mm 10mm 14mm; }
+  @page { margin: 10mm 8mm 12mm; }
   html, body, #root { height: auto !important; overflow: visible !important; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-header { display: block !important; color: #000; font-family: 'Plus Jakarta Sans', Arial, sans-serif; }
@@ -81,4 +84,18 @@ body { @apply bg-background text-foreground font-sans antialiased; }
   .report-table th { background: #e8eef0 !important; color: #000 !important; border: 1px solid #b9c6cc; padding: 4px 6px; font-size: 9px; }
   .report-table td { border: 1px solid #d5dee2; padding: 3px 6px; color: #000; }
   .report-table tbody tr:nth-child(even) td { background: #f6f9fa !important; }
+}
+
+/* Orientação da impressão (a regra @page de tamanho é injetada pela página de relatórios). Retrato: tudo menor para caber. */
+@media print {
+  .report-table { width: 100% !important; min-width: 0 !important; table-layout: auto; }
+  .report-table th, .report-table td { white-space: normal !important; word-break: normal; overflow-wrap: break-word; hyphens: auto; }
+  .report-portrait .report-table { font-size: 8px; }
+  .report-portrait .report-table th { font-size: 7.5px; padding: 2px 3px; }
+  .report-portrait .report-table td { padding: 2px 3px; font-size: 8.5px; line-height: 1.25; }
+  .report-portrait .print-header .text-lg { font-size: 13px; }
+  .report-portrait .print-header .text-xs { font-size: 8px; }
+  .report-portrait .print-header h1 { font-size: 11px; }
+  .report-portrait .print-header img { max-height: 40px !important; }
+  .report-landscape .report-table th, .report-landscape .report-table td { font-size: 9px; }
 }

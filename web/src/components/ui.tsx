@@ -23,13 +23,13 @@ export function useReveal<T extends HTMLElement>(deps: unknown[] = []) {
 export function PageHeader({ title, subtitle, actions, back }: { title: string; subtitle?: string; actions?: ReactNode; back?: string | boolean }) {
   const nav = useNavigate();
   return (
-    <div className="no-print mb-5 flex flex-wrap items-end justify-between gap-3">
+    <div className="no-print mb-3 flex flex-wrap items-end justify-between gap-2 sm:mb-5 sm:gap-3">
       <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}
+        <h1 className="font-display text-xl font-bold tracking-tight sm:text-2xl">{title}</h1>
+        {subtitle && <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">{subtitle}</p>}
       </div>
       {(actions || back) && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {actions}
           {back && <button type="button" className="btn-outline" onClick={() => (typeof back === 'string' ? nav(back) : nav(-1))}><ArrowLeft className="h-4 w-4" />Voltar</button>}
         </div>
@@ -49,8 +49,8 @@ export const Badge = ({ tone = 'neutral', children }: { tone?: Tone; children: R
 
 export function Empty({ title, hint, action, icon: Icon = Inbox }: { title: string; hint?: string; action?: ReactNode; icon?: LucideIcon }) {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
-      <div className="mb-3 rounded-full bg-muted p-4"><Icon className="h-7 w-7 text-muted-foreground" /></div>
+    <div className="flex flex-col items-center justify-center px-4 py-10 text-center sm:py-14">
+      <div className="mb-3 rounded-full bg-muted p-3 sm:p-4"><Icon className="h-6 w-6 text-muted-foreground sm:h-7 sm:w-7" /></div>
       <p className="font-semibold">{title}</p>
       {hint && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{hint}</p>}
       {action && <div className="mt-4">{action}</div>}
@@ -78,12 +78,12 @@ export function Modal({ title, children, footer, onClose, size = 'md' }: { title
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div ref={ref} role="dialog" aria-modal="true" aria-label={title} className={`flex max-h-[92vh] w-full ${w} flex-col rounded-t-2xl border bg-card shadow-2xl sm:rounded-2xl`}>
-        <div className="flex items-center justify-between border-b px-5 py-3.5">
-          <h2 className="font-display text-lg font-bold">{title}</h2>
+        <div className="flex items-center justify-between border-b px-4 py-3 sm:px-5 sm:py-3.5">
+          <h2 className="font-display text-base font-bold sm:text-lg">{title}</h2>
           <button className="rounded-lg p-1.5 hover:bg-muted" onClick={onClose} aria-label="Fechar"><X className="h-5 w-5" /></button>
         </div>
-        <div className="overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="flex flex-wrap justify-end gap-2 border-t px-5 py-3">{footer}</div>}
+        <div className="overflow-y-auto px-4 py-3 sm:px-5 sm:py-4">{children}</div>
+        {footer && <div className="flex flex-wrap justify-end gap-2 border-t px-4 py-2.5 sm:px-5 sm:py-3">{footer}</div>}
       </div>
     </div>
   );
@@ -109,11 +109,11 @@ export function StatCard({ label, value, format, icon: Icon, tone = 'primary', h
 }) {
   const bg = { primary: 'bg-primary/10 text-primary', accent: 'bg-accent/20 text-accent', success: 'bg-success/10 text-success', danger: 'bg-danger/10 text-danger', warning: 'bg-warning/15 text-warning', info: 'bg-info/10 text-info' }[tone];
   const body = (
-    <div data-reveal className="card group flex items-start gap-3.5 p-4 transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className={`rounded-xl p-2.5 ${bg}`}><Icon className="h-5 w-5" /></div>
+    <div data-reveal className="card group flex items-start gap-2.5 p-3 transition sm:gap-3.5 sm:p-4 hover:-translate-y-0.5 hover:shadow-md">
+      <div className={`rounded-lg p-2 sm:rounded-xl sm:p-2.5 ${bg}`}><Icon className="h-4 w-4 sm:h-5 sm:w-5" /></div>
       <div className="min-w-0">
-        <p className="text-xs font-medium leading-tight text-muted-foreground">{label}</p>
-        <p className="mt-0.5 font-display text-xl font-bold tabular-nums"><CountUp value={value} format={format} /></p>
+        <p className="text-[11px] font-medium leading-tight text-muted-foreground sm:text-xs">{label}</p>
+        <p className="mt-0.5 break-words font-display text-base font-bold tabular-nums sm:text-xl"><CountUp value={value} format={format} /></p>
         {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
       </div>
     </div>
@@ -135,7 +135,7 @@ export function DataTable<T extends { id?: string | number }>({ cols, rows, load
     <div className="card overflow-hidden">
       {error ? <ErrorBox message={error} onRetry={onRetry} /> : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px]">
+          <table className="w-full min-w-[540px] sm:min-w-[640px]">
             <thead className="border-b bg-muted/50">
               <tr>
                 {cols.map((c) => (
@@ -184,7 +184,7 @@ export function Tabs<T extends string>({ value, onChange, tabs }: { value: T; on
     <div className="no-print mb-4 flex gap-1 overflow-x-auto rounded-xl border bg-card p-1" role="tablist">
       {tabs.map((t) => (
         <button key={t.id} role="tab" aria-selected={value === t.id} onClick={() => onChange(t.id)}
-          className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold transition ${value === t.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}>{t.label}</button>
+          className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-[13px] font-semibold transition sm:px-3.5 sm:text-sm ${value === t.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}>{t.label}</button>
       ))}
     </div>
   );

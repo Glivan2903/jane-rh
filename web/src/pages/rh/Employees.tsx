@@ -25,7 +25,7 @@ export default function Employees() {
 
   const cols: Col<Employee>[] = [
     { key: 'name', label: 'Nome', sort: 'name', render: (r) => <div><Link to={`/rh/funcionarios/${r.id}`} className="font-semibold hover:text-primary">{r.fullName}</Link><div className="text-xs text-muted-foreground">Mat. {r.registration}{r.payrollNumber ? ` · Folha ${r.payrollNumber}` : ''}</div></div> },
-    { key: 'cpf', label: 'CPF', render: (r) => <span className="tabular-nums">{fmtCpf(r.cpf)}</span> },
+    { key: 'cpf', label: 'CPF', render: (r) => <span className="whitespace-nowrap tabular-nums">{fmtCpf(r.cpf)}</span> },
     { key: 'position', label: 'Cargo', sort: 'position', render: (r) => r.position ?? '—' },
     { key: 'department', label: 'Departamento', sort: 'department', render: (r) => r.department ?? '—' },
     { key: 'admission', label: 'Admissão', sort: 'admission', render: (r) => dmy(r.admissionDate) },

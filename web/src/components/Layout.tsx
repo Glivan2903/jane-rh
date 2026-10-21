@@ -8,7 +8,6 @@ import {
 import { useAuth, useTheme } from '../lib/app';
 import { api } from '../lib/api';
 import { Brand } from './brand';
-import { brl } from '../lib/format';
 import { useCompany } from '../lib/company';
 
 interface Item { to: string; label: string; icon: LucideIcon; perm?: string[]; end?: boolean }
@@ -47,29 +46,21 @@ const NAV: Group[] = [
 interface Notice { id: string; text: string; to: string; tone: 'danger' | 'warning' }
 
 function useNotices() {
-  const { can } = useAuth();
   const [n, setN] = useState<Notice[]>([]);
   useEffect(() => {
-    let alive = true;
+    let alive = true; let timer: ReturnType<typeof setTimeout>;
     const load = async () => {
-      const out: Notice[] = [];
+      let next = 2;
       try {
-        if (can('est.view')) {
-          const a = await api.get<{ status: string }[]>('/est/alerts');
-          const zero = a.filter((x) => x.status === 'sem_estoque').length, low = a.length - zero;
-          if (zero) out.push({ id: 'z', text: `${zero} produto(s) sem estoque`, to: '/estoque?stockStatus=sem_estoque', tone: 'danger' });
-          if (low) out.push({ id: 'l', text: `${low} produto(s) abaixo do estoque mínimo`, to: '/estoque?stockStatus=baixo', tone: 'warning' });
-        }
-        if (can('fin.view')) {
-          const s = await api.get<{ vencidas: { pagar: number; receber: number; qtd: number } }>('/fin/summary');
-          if (s.vencidas.qtd) out.push({ id: 'v', text: `${s.vencidas.qtd} conta(s) vencida(s): ${brl(s.vencidas.pagar)} a pagar · ${brl(s.vencidas.receber)} a receber`, to: '/financeiro/despesas?status=vencida', tone: 'danger' });
-        }
+        const r = await api.get<{ refreshMinutes: number; notices: Notice[] }>('/dashboard/notices');
+        if (alive) setN(r.notices);
+        next = r.refreshMinutes || 2;
       } catch { /* notificações são opcionais */ }
-      if (alive) setN(out);
+      if (alive) timer = setTimeout(load, next * 60_000);
     };
-    load(); const t = setInterval(load, 120_000);
-    return () => { alive = false; clearInterval(t); };
-  }, [can]);
+    load();
+    return () => { alive = false; clearTimeout(timer); };
+  }, []);
   return n;
 }
 
@@ -153,9 +144,9 @@ export function Layout() {
     <div className="flex h-full">
       <div className="relative hidden shrink-0 lg:block">
         {sidebar}
-        <button onClick={toggleIcons} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'} title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          className="absolute -right-2.5 top-1/2 z-20 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-sidebar text-sidebar-muted opacity-50 shadow transition hover:opacity-100 hover:bg-primary hover:text-primary-foreground focus-visible:opacity-100">
-          {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        <button onClick={toggleIcons} aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'} title={`${collapsed ? 'Expandir' : 'Recolher'} menu (Ctrl+B)`}
+          className="absolute -right-3.5 top-20 z-20 flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-lg ring-1 ring-primary/40 transition hover:scale-110 hover:brightness-110 focus-visible:scale-110">
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </div>
       {open && (
@@ -165,7 +156,7 @@ export function Layout() {
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="no-print sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b bg-background/85 px-4 backdrop-blur sm:px-6">
+        <header className="no-print sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-2 border-b bg-background/85 px-3 backdrop-blur sm:h-16 sm:gap-3 sm:px-6">
           <div className="flex items-center gap-3">
             <button className="rounded-lg p-2 hover:bg-muted lg:hidden" onClick={() => setOpen(true)} aria-label="Abrir menu"><Menu className="h-5 w-5" /></button>
             <span className="font-display text-base font-bold tracking-tight sm:text-lg">Gentis <span className="hidden font-sans text-xs font-medium text-muted-foreground sm:inline">· {company?.tradeName || company?.legalName || 'Gestão de pessoas e negócios'}</span></span>
@@ -202,8 +193,8 @@ export function Layout() {
             </div>
           </div>
         </header>
-        <main ref={mainRef} className="flex-1 overflow-y-auto p-4 sm:p-6" onClick={() => menu && setMenu(null)}>
-          <div className="mx-auto max-w-[1400px]"><Outlet /></div>
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6" onClick={() => menu && setMenu(null)}>
+          <div className="w-full"><Outlet /></div>
         </main>
       </div>
     </div>

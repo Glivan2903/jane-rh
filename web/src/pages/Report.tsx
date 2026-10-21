@@ -25,6 +25,8 @@ export function ReportPage({ cfg }: { cfg: ReportCfg }) {
   const [extra, setExtra] = useState<Record<string, string>>({});
   const [res, setRes] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const [orient, setOrient] = useState<'landscape' | 'portrait'>(() => { try { return localStorage.getItem('gentis-print-orient') === 'portrait' ? 'portrait' : 'landscape'; } catch { return 'landscape'; } });
+  const setOrientation = (o: 'landscape' | 'portrait') => { setOrient(o); try { localStorage.setItem('gentis-print-orient', o); } catch { /* ignore */ } };
   const { can } = useAuth(); const toast = useToast();
 
   useEffect(() => { if (names && !name) setName(Object.keys(names)[0]); }, [names, name]);
@@ -40,19 +42,23 @@ export function ReportPage({ cfg }: { cfg: ReportCfg }) {
   const csv = async () => { try { await api.download(`${cfg.base}/reports/${name}`, { ...params(), format: 'csv' }, `${name}.csv`); toast.success('Arquivo gerado.'); } catch (e) { toast.error(errMsg(e)); } };
 
   return (
-    <div>
+    <div className={`report-${orient}`}>
+      <style>{`@media print { @page { size: A4 ${orient}; } }`}</style>
       <PageHeader title={cfg.title} subtitle="Consulte, exporte para CSV (Excel) ou imprima."
         actions={<>
           {can(cfg.exportPerm) && <button className="btn-outline" onClick={csv} disabled={!res}><Download className="h-4 w-4" />Exportar CSV</button>}
+          <select aria-label="Orientação da impressão" className="input !w-auto" value={orient} onChange={(e) => setOrientation(e.target.value as 'landscape' | 'portrait')}>
+            <option value="landscape">Paisagem</option><option value="portrait">Retrato</option>
+          </select>
           <button className="btn-outline" onClick={() => window.print()} disabled={!res}><Printer className="h-4 w-4" />Imprimir</button>
         </>} />
-      <div className="no-print mb-4 grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-2 lg:grid-cols-4">
-        <select aria-label="Relatório" className="input sm:col-span-2" value={name} onChange={(e) => setName(e.target.value)}>
+      <div className="no-print mb-3 grid grid-cols-2 gap-2 rounded-xl border bg-card p-2.5 sm:mb-4 sm:gap-3 sm:p-3 lg:grid-cols-4">
+        <select aria-label="Relatório" className="input col-span-2" value={name} onChange={(e) => setName(e.target.value)}>
           {Object.entries(names ?? {}).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         {cfg.dateFilter !== 'none' && <><FilterDate label="De" value={from} onChange={setFrom} /><FilterDate label="Até" value={to} onChange={setTo} /></>}
         {cfg.extra?.map((x) => <FilterSelect key={x.key} label={x.label} placeholder={x.label} options={x.options} value={extra[x.key] ?? ''} onChange={(v) => setExtra((s) => ({ ...s, [x.key]: v }))} />)}
-        <button className="btn-primary" onClick={run} disabled={busy}>{busy ? <Spinner /> : <Play className="h-4 w-4" />}Gerar</button>
+        <button className="btn-primary col-span-2 sm:col-span-1" onClick={run} disabled={busy}>{busy ? <Spinner /> : <Play className="h-4 w-4" />}Gerar</button>
       </div>
       <div className="card overflow-hidden">
         {err ? <ErrorBox message={err} onRetry={run} /> : !res ? <div className="p-10 text-center text-sm text-muted-foreground">{busy ? <Spinner className="mx-auto h-6 w-6" /> : 'Selecione um relatório.'}</div> : (
@@ -64,7 +70,7 @@ export function ReportPage({ cfg }: { cfg: ReportCfg }) {
             ]} />
             <div className="no-print flex items-center justify-between border-b px-4 py-3"><h2 className="font-display font-bold">{res.title}</h2><span className="text-xs text-muted-foreground">{res.rows.length} linha(s)</span></div>
             {res.rows.length === 0 ? <Empty title="Nenhum dado para os filtros informados" hint="Ajuste o período ou os filtros e gere novamente." /> : (
-              <div className="overflow-x-auto print:overflow-visible"><table className="report-table w-full min-w-[640px] print:min-w-0">
+              <div className="overflow-x-auto print:overflow-visible"><table className="report-table w-full min-w-[520px] sm:min-w-[640px] print:min-w-0">
                 <thead className="border-b bg-muted/50"><tr>{res.columns.map((c) => <th key={c.key} className="th">{c.label}</th>)}</tr></thead>
                 <tbody className="divide-y">{res.rows.map((r, i) => <tr key={i} className="hover:bg-muted/40">{res.columns.map((c) => <td key={c.key} className="td">{String(r[c.key] ?? '') || '—'}</td>)}</tr>)}</tbody>
               </table></div>

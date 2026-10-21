@@ -10,6 +10,7 @@ import { audit } from '../audit.js';
 import { hasPerm, requireAuth } from '../auth.js';
 import { HttpError, Where, h, likeEsc, listParams, money, optDate, optStr, parse, qstr, reqDate, reqStr, sendReport, today } from '../util.js';
 import { EFF, TODAY_SQL, financeSummary } from '../services/finance.js';
+import { getSettings } from '../services/settings.js';
 
 export const finRouter = Router();
 
@@ -236,6 +237,22 @@ const range = (req: import('express').Request) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) throw new HttpError(422, 'Período inválido');
   return { from, to };
 };
+
+// Próximas contas (pendentes) com vencimento até N dias; as já vencidas vêm primeiro, marcadas com daysLeft < 0.
+finRouter.get('/upcoming', requireAuth('fin.view'), h(async (req, res) => {
+  const st = await getSettings();
+  const type = qstr(req, 'type') === 'receita' ? 'receita' : qstr(req, 'type') === 'ambos' ? 'ambos' : 'despesa';
+  const days = Math.min(90, Math.max(0, Number(qstr(req, 'days') ?? st.notify_bills_days) || 0));
+  const limit = Math.min(50, Math.max(1, Number(qstr(req, 'limit') ?? st.upcoming_list_size) || st.upcoming_list_size));
+  const where = `t.status='pendente' AND t.due_date <= ${TODAY_SQL} + $1::int ${type === 'ambos' ? '' : 'AND t.type = $2'}`;
+  const params: unknown[] = type === 'ambos' ? [days] : [days, type];
+  const agg = (await pool.query(`SELECT count(*)::int n, COALESCE(sum(t.amount),0) total FROM financial_transactions t WHERE ${where}`, params)).rows[0];
+  const rows = (await pool.query(
+    `SELECT t.id, t.type, t.description, t.party, t.amount, t.due_date AS "dueDate", c.name AS category, (t.due_date - ${TODAY_SQL})::int AS "daysLeft"
+       FROM financial_transactions t JOIN financial_categories c ON c.id = t.category_id
+      WHERE ${where} ORDER BY t.due_date, t.id LIMIT ${limit}`, params)).rows;
+  res.json({ days, type, total: Number(agg.total), count: agg.n, items: rows });
+}));
 
 finRouter.get('/summary', requireAuth('fin.view'), h(async (req, res) => {
   const { from, to } = range(req);

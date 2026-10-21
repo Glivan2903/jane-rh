@@ -5,6 +5,8 @@ import { HttpError, h, qstr, today } from '../util.js';
 import { hrSummary } from '../services/hr.js';
 import { financeSummary } from '../services/finance.js';
 import { stockSummary } from '../services/stock.js';
+import { getSettings } from '../services/settings.js';
+import { TODAY_SQL } from '../services/finance.js';
 
 export const dashboardRouter = Router();
 
@@ -43,4 +45,28 @@ dashboardRouter.get('/', requireAuth('dash.view'), h(async (req, res) => {
     .then((r) => { out.atividades = r.rows; }));
   await Promise.all(jobs);
   res.json(out);
+}));
+
+// Avisos do sino (calculados no servidor conforme as preferências em Configurações → Parâmetros).
+dashboardRouter.get('/notices', requireAuth(), h(async (req, res) => {
+  const st = await getSettings();
+  const out: { id: string; text: string; to: string; tone: 'danger' | 'warning' }[] = [];
+  const brl = (n: unknown) => Number(n ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  if (st.notify_stock_enabled && hasPerm(req, 'est.view')) {
+    const r = (await pool.query(`SELECT count(*) FILTER (WHERE quantity <= 0)::int zero, count(*) FILTER (WHERE quantity > 0 AND quantity <= min_stock)::int low FROM products WHERE active AND min_stock IS NOT NULL`)).rows[0];
+    if (r.zero) out.push({ id: 'z', text: `${r.zero} produto(s) sem estoque`, to: '/estoque?stockStatus=sem_estoque', tone: 'danger' });
+    if (r.low) out.push({ id: 'l', text: `${r.low} produto(s) abaixo do estoque mínimo`, to: '/estoque?stockStatus=baixo', tone: 'warning' });
+  }
+  if (hasPerm(req, 'fin.view')) {
+    const types = st.notify_receivables ? ['despesa', 'receita'] : ['despesa'];
+    if (st.notify_overdue_enabled) {
+      const r = (await pool.query(`SELECT type, count(*)::int n, COALESCE(sum(amount),0) total FROM financial_transactions WHERE status='pendente' AND due_date < ${TODAY_SQL} AND type = ANY($1) GROUP BY type`, [types])).rows;
+      for (const x of r) out.push({ id: `v-${x.type}`, text: `${x.n} conta(s) ${x.type === 'despesa' ? 'a pagar' : 'a receber'} vencida(s): ${brl(x.total)}`, to: `/financeiro/${x.type === 'despesa' ? 'despesas' : 'receitas'}?status=vencida`, tone: 'danger' });
+    }
+    if (st.notify_bills_enabled) {
+      const r = (await pool.query(`SELECT type, count(*)::int n, COALESCE(sum(amount),0) total FROM financial_transactions WHERE status='pendente' AND due_date BETWEEN ${TODAY_SQL} AND ${TODAY_SQL} + $1::int AND type = ANY($2) GROUP BY type`, [st.notify_bills_days, types])).rows;
+      for (const x of r) out.push({ id: `p-${x.type}`, text: `${x.n} conta(s) ${x.type === 'despesa' ? 'a pagar' : 'a receber'} vence(m) em até ${st.notify_bills_days} dia(s): ${brl(x.total)}`, to: `/financeiro/${x.type === 'despesa' ? 'despesas' : 'receitas'}`, tone: 'warning' });
+    }
+  }
+  res.json({ refreshMinutes: st.notify_refresh_minutes, notices: out });
 }));

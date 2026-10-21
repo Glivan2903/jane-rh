@@ -83,7 +83,7 @@ export const SubmitButton = ({ busy, children, className = 'btn-primary' }: { bu
 
 /** Barra de filtros de listagens. */
 export function FilterBar({ children }: { children: ReactNode }) {
-  return <div className="no-print mb-4 grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>;
+  return <div className="no-print mb-3 grid grid-cols-2 gap-2 rounded-xl border bg-card p-2.5 sm:mb-4 sm:gap-3 sm:p-3 lg:grid-cols-4 [&>:first-child]:col-span-2 sm:[&>:first-child]:col-span-1">{children}</div>;
 }
 export const SearchBox = ({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) => (
   <input type="search" aria-label={placeholder} className="input" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
@@ -94,5 +94,5 @@ export const FilterSelect = ({ value, onChange, options, placeholder, label }: {
   </select>
 );
 export const FilterDate = ({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) => (
-  <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><span className="whitespace-nowrap">{label}</span><input type="date" className="input" value={value} onChange={(e) => onChange(e.target.value)} /></label>
+  <label className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground sm:gap-2"><span className="whitespace-nowrap">{label}</span><input type="date" className="input min-w-0" value={value} onChange={(e) => onChange(e.target.value)} /></label>
 );
