@@ -1,5 +1,5 @@
 # Stack para Portainer (Repository ou Web editor com imagem já publicada).
-# Variáveis obrigatórias: DB_PASSWORD. Opcional: DB_USER, DB_NAME, APP_PORT, COOKIE_SECURE, SETUP_TOKEN.
+# Variáveis obrigatórias: DB_PASSWORD. Opcional: APP_DOMAIN, TRAEFIK_NETWORK, TRAEFIK_CERTRESOLVER, DB_USER, DB_NAME, SETUP_TOKEN.
 # O primeiro administrador é criado pela tela /configurar no primeiro acesso.
 # SETUP_TOKEN (opcional): se definido, é exigido nessa tela (evita que um terceiro cadastre o admin primeiro).
 services:
@@ -30,19 +30,28 @@ services:
       NODE_ENV: production
       PORT: 3001
       DATABASE_URL: postgres://${DB_USER:-jane}:${DB_PASSWORD}@db:5432/${DB_NAME:-jane}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
       SESSION_HOURS: 8
       BACKUP_AUTO_HOURS: ${BACKUP_AUTO_HOURS:-24}
       BACKUP_KEEP: 14
       SETUP_TOKEN: ${SETUP_TOKEN:-}
-    networks: [gentis]
     volumes:
       - gentis_storage:/app/server/storage
-    ports:
-      - "${APP_PORT:-3001}:3001"
+    networks: [gentis, proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK:-traefik}
+      - traefik.http.routers.gentis.rule=Host(`${APP_DOMAIN:-gentis.illo.app.br}`)
+      - traefik.http.routers.gentis.entrypoints=websecure
+      - traefik.http.routers.gentis.tls=true
+      - traefik.http.routers.gentis.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
+      - traefik.http.services.gentis.loadbalancer.server.port=3001
 
 networks:
   gentis:
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK:-traefik}
 
 volumes:
   gentis_pgdata:
