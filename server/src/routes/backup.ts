@@ -42,7 +42,7 @@ function run(argv: string[], opts: { stdin?: fs.ReadStream; stdout?: fs.WriteStr
 }
 
 const dumpArgv = () => [...(config.pgDumpCmd ? splitCmd(config.pgDumpCmd) : ['pg_dump', '--dbname', config.databaseUrl]),
-  '--no-owner', '--no-privileges', '--clean', '--if-exists'];
+  '--no-owner', '--no-privileges', '--clean', '--if-exists', '--schema=public'];
 const psqlArgv = () => config.psqlCmd ? splitCmd(config.psqlCmd) : ['psql', '--dbname', config.databaseUrl, '-v', 'ON_ERROR_STOP=1', '--single-transaction'];
 
 const sha = (file: string) => new Promise<string>((resolve, reject) => {

@@ -8,7 +8,7 @@ COPY web web
 RUN npm --prefix web run build && npm --prefix server run build
 
 FROM node:20-alpine
-RUN apk add --no-cache postgresql16-client
+RUN apk add --no-cache postgresql17-client
 ENV NODE_ENV=production PORT=3001
 WORKDIR /app
 COPY --from=build /app/server /app/server

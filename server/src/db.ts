@@ -6,7 +6,13 @@ import { config } from './config.js';
 // DATE como string 'YYYY-MM-DD' (sem deslocamento de fuso).
 pg.types.setTypeParser(1082, (v) => v);
 // NUMERIC e BIGINT chegam como string (sem perda de precisão); a camada de rotas converte quando necessário.
-export const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 10 });
+// DATABASE_SSL=true para bancos gerenciados (ex.: Supabase), que exigem TLS.
+const dbUrl = new URL(config.databaseUrl);
+dbUrl.searchParams.delete('sslmode');
+export const pool = new pg.Pool({
+  connectionString: dbUrl.toString(), max: 10,
+  ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+});
 
 export type Q = Pick<pg.PoolClient, 'query'>;
 
