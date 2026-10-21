@@ -20,7 +20,7 @@ services:
       retries: 10
 
   app:
-    build: .
+    build: https://github.com/Glivan2903/jane-rh.git#main
     image: gentis-app:latest
     restart: unless-stopped
     depends_on:
