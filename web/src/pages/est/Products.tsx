@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Eye, Package, Pencil, Plus, Scale } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Eye, Package, Pencil, Plus, Scale, Trash2 } from 'lucide-react';
 import { MovementModal, type Kind, type ProdRef } from './MovementModal';
 import { Link } from 'react-router-dom';
 import { Badge, DataTable, Empty, Modal, PageHeader, type Col, type Tone } from '../../components/ui';
 import { FCheck, FilterBar, FilterSelect, FInput, FSelect, FTextarea, SearchBox, SubmitButton } from '../../components/forms';
 import { api } from '../../lib/api';
-import { useAuth, useToast } from '../../lib/app';
+import { errMsg, useAuth, useConfirm, useToast } from '../../lib/app';
 import { useFetch, useForm, useList } from '../../lib/hooks';
 import { brl, num } from '../../lib/format';
 
@@ -58,13 +58,18 @@ function ProductForm({ row, onClose, onSaved }: { row: Product | null; onClose: 
 }
 
 export default function Products() {
-  const { can } = useAuth(); const [sp] = useSearchParams();
+  const { can } = useAuth(); const toast = useToast(); const confirm = useConfirm(); const [sp] = useSearchParams();
   const [cat, setCat] = useState(''); const [st, setSt] = useState(sp.get('stockStatus') ?? ''); const [active, setActive] = useState('');
   const [edit, setEdit] = useState<Product | 'new' | null>(null);
   const [mv, setMv] = useState<{ kind: Kind; product?: ProdRef } | null>(null);
   const cats = useFetch<{ id: number; name: string }[]>('/est/categories');
   const alerts = useFetch<{ id: string; code: string; name: string; quantity: string; minStock: string; unit: string; status: string }[]>('/est/alerts');
   const t = useList<Product>('/est/products', { sort: 'name', filters: { categoryId: cat, stockStatus: st, active } });
+
+  const remove = async (r: Product) => {
+    if (!await confirm({ title: 'Excluir produto', danger: true, confirmLabel: 'Excluir', message: <>Deseja realmente excluir o produto <b>{r.code} — {r.name}</b>? Esta ação não pode ser desfeita. Produtos com movimentações não podem ser excluídos; inative-os.</> })) return;
+    try { await api.del(`/est/products/${r.id}`); toast.success('Produto excluído.'); t.reload(); alerts.reload(); } catch (e) { toast.error(errMsg(e)); }
+  };
 
   const cols: Col<Product>[] = [
     { key: 'code', label: 'Código', sort: 'code', render: (r) => <span className="font-mono text-xs">{r.code}</span> },
@@ -82,6 +87,7 @@ export default function Products() {
         {r.active && can('est.move') && <button className="btn-ghost btn-sm text-danger" title="Registrar saída" aria-label={`Saída de ${r.name}`} onClick={() => setMv({ kind: 'saida', product: r })}><ArrowUpFromLine className="h-4 w-4" /></button>}
         {r.active && can('est.adjust') && <button className="btn-ghost btn-sm" title="Ajustar inventário" aria-label={`Ajuste de ${r.name}`} onClick={() => setMv({ kind: 'ajuste', product: r })}><Scale className="h-4 w-4" /></button>}
         {can('est.edit', 'est.inactivate') && <button className="btn-ghost btn-sm" title="Editar" aria-label={`Editar ${r.name}`} onClick={() => setEdit(r)}><Pencil className="h-4 w-4" /></button>}
+        {can('est.inactivate') && <button className="btn-ghost btn-sm text-danger" title="Excluir" aria-label={`Excluir ${r.name}`} onClick={() => remove(r)}><Trash2 className="h-4 w-4" /></button>}
       </div>) },
   ];
   const add = can('est.create') && <button className="btn-primary" onClick={() => setEdit('new')}><Plus className="h-4 w-4" />Novo produto</button>;

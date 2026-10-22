@@ -103,6 +103,16 @@ estRouter.put('/products/:id', requireAuth('est.edit', 'est.inactivate'), h(asyn
   res.json({ ok: true });
 }));
 
+estRouter.delete('/products/:id', requireAuth('est.inactivate'), h(async (req, res) => {
+  const cur = (await pool.query('SELECT code, name FROM products WHERE id=$1', [req.params.id])).rows[0];
+  if (!cur) throw new HttpError(404, 'Produto não encontrado');
+  const uses = (await pool.query('SELECT count(*)::int n FROM stock_movements WHERE product_id=$1', [req.params.id])).rows[0].n;
+  if (uses > 0) throw new HttpError(409, `Produto possui ${uses} movimentação(ões) de estoque. Inative em vez de excluir.`);
+  await pool.query('DELETE FROM products WHERE id=$1', [req.params.id]);
+  await audit(req, { action: 'excluir', module: 'estoque', entity: 'product', entityId: req.params.id, summary: `Produto excluído: ${cur.code} — ${cur.name}` });
+  res.json({ ok: true });
+}));
+
 // ---------- Movimentações ----------
 interface Mv {
   productId: string; type: 'entrada' | 'saida' | 'ajuste'; quantity: number; date: string; reason: string;
