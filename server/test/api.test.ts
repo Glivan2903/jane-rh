@@ -314,6 +314,37 @@ test('Dados da empresa: CNPJ validado, leitura por todos, logotipo restrito', as
   assert.equal((await fetch(base + '/api/company/logo')).status, 401);
 });
 
+test('Exclusões: produto, lançamento e funcionário com registro em auditoria', async () => {
+  const admin = await login('admin@t.local');
+  const logs = async (entity: string) => (await pool.query(`SELECT summary, details FROM audit_logs WHERE action='excluir' AND entity=$1`, [entity])).rows;
+
+  // lançamento: pendente exclui; com baixa não
+  const catR = (await admin.post('/api/fin/categories', { type: 'receita', name: 'Cat Del R' })).body.id;
+  const t1 = (await admin.post('/api/fin/transactions', { type: 'receita', description: 'Apagar', categoryId: catR, amount: 50, competenceDate: '2026-03-01', dueDate: '2026-03-10' })).body.id;
+  const t2 = (await admin.post('/api/fin/transactions', { type: 'receita', description: 'Baixada', categoryId: catR, amount: 60, competenceDate: '2026-03-01', dueDate: '2026-03-10' })).body.id;
+  assert.equal((await admin.post(`/api/fin/transactions/${t2}/settle`, { effectiveDate: '2026-03-10' })).status, 200);
+  assert.equal((await admin.del(`/api/fin/transactions/${t2}`)).status, 409);
+  assert.equal((await admin.del(`/api/fin/transactions/${t1}`)).status, 200);
+  assert.equal((await admin.del(`/api/fin/transactions/${t1}`)).status, 404);
+  assert.equal((await logs('transaction')).length, 1);
+
+  // produto: sem movimentação exclui; com movimentação não
+  const unit = (await admin.post('/api/est/units', { code: 'DL', name: 'Del unit' })).body.id;
+  const p1 = (await admin.post('/api/est/products', { name: 'Sem mov', unitId: unit })).body.id;
+  const p2 = (await admin.post('/api/est/products', { name: 'Com mov', unitId: unit, initialQuantity: 5, cost: 2 })).body.id;
+  assert.equal((await admin.del(`/api/est/products/${p2}`)).status, 409);
+  assert.equal((await admin.del(`/api/est/products/${p1}`)).status, 200);
+  assert.equal((await logs('product')).length, 1);
+
+  // funcionário: não ativo exclui (histórico junto); ativo não
+  const e1 = (await admin.post('/api/rh/employees', emp({ cpf: '39053344705', fullName: 'Excluir Pessoa' }))).body.id;
+  assert.ok(e1);
+  assert.equal((await admin.del(`/api/rh/employees/${e1}`)).status, 200);
+  assert.equal((await pool.query('SELECT 1 FROM employment_history WHERE employee_id=$1', [e1])).rowCount, 0);
+  const l = await logs('employee');
+  assert.equal(l.length, 1); assert.ok(l[0].details.historico.length >= 1);
+});
+
 test('Backup real: gerar, verificar integridade, baixar e restaurar', async () => {
   const admin = await login('admin@t.local'), con = await login('con@t.local');
   assert.equal((await con.post('/api/config/backups')).status, 403);

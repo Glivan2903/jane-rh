@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Ban, CheckCheck, Paperclip, Pencil, Plus, Wallet } from 'lucide-react';
+import { Ban, CheckCheck, Paperclip, Pencil, Plus, Trash2, Wallet } from 'lucide-react';
 import { Badge, DataTable, Empty, Modal, PageHeader, type Col, type Tone } from '../../components/ui';
 import { FCheck, FilterBar, FilterDate, FilterSelect, FInput, FSelect, FTextarea, SearchBox, SubmitButton } from '../../components/forms';
 import { api } from '../../lib/api';
@@ -115,6 +115,11 @@ export default function Transactions({ type }: { type: 'receita' | 'despesa' }) 
     try { await api.post(`/fin/transactions/${r.id}/cancel`, {}); toast.success('Lançamento cancelado.'); t.reload(); } catch (e) { toast.error(errMsg(e)); }
   };
 
+  const remove = async (r: Tx) => {
+    if (!(await confirm({ title: 'Excluir lançamento?', message: `"${r.description}" será excluído definitivamente. A exclusão fica registrada nos logs de auditoria.`, confirmLabel: 'Excluir', danger: true }))) return;
+    try { await api.del(`/fin/transactions/${r.id}`); toast.success('Lançamento excluído.'); t.reload(); } catch (e) { toast.error(errMsg(e)); }
+  };
+
   const cols: Col<Tx>[] = [
     { key: 'description', label: 'Descrição', sort: 'description', render: (r) => <div><span className="font-semibold">{r.description}</span>{r.party && <div className="text-xs text-muted-foreground">{r.party}</div>}</div> },
     { key: 'category', label: 'Categoria', sort: 'category' },
@@ -127,6 +132,7 @@ export default function Transactions({ type }: { type: 'receita' | 'despesa' }) 
         {r.storedStatus === 'pendente' && can('fin.settle') && <button className="btn-ghost btn-sm text-success" title={isR ? 'Registrar recebimento' : 'Registrar pagamento'} aria-label={`Baixar ${r.description}`} onClick={() => setSettle(r)}><CheckCheck className="h-4 w-4" /></button>}
         {r.storedStatus !== 'cancelada' && can('fin.edit') && <button className="btn-ghost btn-sm" title="Editar" aria-label={`Editar ${r.description}`} onClick={() => setEdit(r)}><Pencil className="h-4 w-4" /></button>}
         {r.storedStatus === 'pendente' && can('fin.cancel') && <button className="btn-ghost btn-sm text-danger" title="Cancelar" aria-label={`Cancelar ${r.description}`} onClick={() => cancel(r)}><Ban className="h-4 w-4" /></button>}
+        {r.storedStatus !== 'realizada' && can('fin.cancel') && <button className="btn-ghost btn-sm text-danger" title="Excluir" aria-label={`Excluir ${r.description}`} onClick={() => remove(r)}><Trash2 className="h-4 w-4" /></button>}
         {r.attachmentName && <button className="btn-ghost btn-sm" title={`Anexo: ${r.attachmentName}`} aria-label="Baixar anexo" onClick={() => api.download(`/fin/transactions/${r.id}/attachment`, {}, r.attachmentName!).catch((e) => toast.error(errMsg(e)))}><Paperclip className="h-4 w-4" /></button>}
       </div>) },
   ];

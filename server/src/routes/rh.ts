@@ -228,6 +228,21 @@ const admissionSchema = z.object({
   notes: optStr(1000),
 });
 
+rhRouter.delete('/employees/:id', requireAuth('rh.terminate'), h(async (req, res) => {
+  await tx(async (c) => {
+    const cur = (await c.query('SELECT * FROM employees WHERE id=$1 FOR UPDATE', [req.params.id])).rows[0];
+    if (!cur) throw new HttpError(404, 'Funcionário não encontrado');
+    if (cur.status === 'ativo') throw new HttpError(409, 'Funcionário ativo não pode ser excluído. Registre o desligamento primeiro.');
+    const history = (await c.query('SELECT at, event_type, description, data, user_name FROM employment_history WHERE employee_id=$1 ORDER BY id', [cur.id])).rows;
+    const subs = (await c.query('UPDATE employees SET manager_id=NULL WHERE manager_id=$1 RETURNING id', [cur.id])).rowCount;
+    await c.query(`SELECT set_config('app.allow_history_delete','on',true)`);
+    await c.query('DELETE FROM employment_history WHERE employee_id=$1', [cur.id]);
+    await c.query('DELETE FROM employees WHERE id=$1', [cur.id]);
+    await audit(req, { action: 'excluir', module: 'rh', entity: 'employee', entityId: cur.id, summary: `Funcionário excluído: ${cur.registration} — ${cur.full_name}`, details: { funcionario: cur, historico: history, subordinadosSemGestor: subs } }, c);
+  });
+  res.json({ ok: true });
+}));
+
 rhRouter.post('/admissions', requireAuth('rh.admit'), h(async (req, res) => {
   const d = parse(admissionSchema, req.body);
   if (d.admissionDate > today()) throw new HttpError(422, 'Data de admissão não pode ser futura', { admissionDate: 'Data de admissão não pode ser futura' });

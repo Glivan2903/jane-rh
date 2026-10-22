@@ -201,6 +201,19 @@ finRouter.post('/transactions/:id/cancel', requireAuth('fin.cancel'), h(async (r
   res.json({ ok: true });
 }));
 
+finRouter.delete('/transactions/:id', requireAuth('fin.cancel'), h(async (req, res) => {
+  const old = await tx(async (c) => {
+    const cur = (await c.query('SELECT * FROM financial_transactions WHERE id=$1 FOR UPDATE', [req.params.id])).rows[0];
+    if (!cur) throw new HttpError(404, 'Lançamento não encontrado');
+    if (cur.status === 'realizada') throw new HttpError(409, 'Lançamento com baixa registrada não pode ser excluído.');
+    await c.query('DELETE FROM financial_transactions WHERE id=$1', [cur.id]);
+    await audit(req, { action: 'excluir', module: 'financeiro', entity: 'transaction', entityId: cur.id, summary: `Lançamento excluído: ${cur.description} — R$ ${Number(cur.amount).toFixed(2).replace('.', ',')}`, details: { lancamento: cur } }, c);
+    return cur;
+  });
+  if (old.attachment_path) fs.rmSync(path.join(config.uploadDir, path.basename(old.attachment_path)), { force: true });
+  res.json({ ok: true });
+}));
+
 // ---------- Anexos ----------
 const ALLOWED = new Map([['.pdf', 'application/pdf'], ['.png', 'image/png'], ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg']]);
 const upload = multer({
