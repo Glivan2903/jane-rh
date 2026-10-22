@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import readline from 'node:readline/promises';
 import { migrate, pool } from './db.js';
 import { strongPassword, PASSWORD_RULE } from './auth.js';
@@ -35,7 +36,20 @@ if (cmd === 'migrate') {
   await pool.query(`INSERT INTO users (name,email,password_hash,role_id) VALUES ($1,$2,$3,$4)`, [name, email, await bcrypt.hash(password, 12), role.id]);
   await pool.query(`INSERT INTO audit_logs (action,module,entity,summary,user_name) VALUES ('criar','config','user',$1,'cli')`, [`Administrador inicial criado: ${email}`]);
   console.log('Administrador criado com sucesso.');
+} else if (cmd === 'create-user') {
+  // Uso: npm run create-user -- "Nome" email usuario "Perfil"  → senha temporária aleatória, troca obrigatória no 1º acesso.
+  const [name, rawEmail, username, roleName] = process.argv.slice(3);
+  const email = (rawEmail ?? '').toLowerCase();
+  if (!name || !/^\S+@\S+\.\S+$/.test(email) || !username || !roleName) { console.error('Uso: npm run create-user -- "Nome" email usuario "Perfil"'); process.exit(1); }
+  await migrate();
+  const role = (await pool.query('SELECT id FROM roles WHERE name=$1', [roleName])).rows[0];
+  if (!role) { console.error(`Perfil não encontrado: ${roleName}`); process.exit(1); }
+  const alpha = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const password = Array.from(crypto.randomBytes(10), (b) => alpha[b % alpha.length]).join('') + '7a';
+  await pool.query(`INSERT INTO users (name,email,username,password_hash,role_id,must_change_password) VALUES ($1,$2,$3,$4,$5,true)`, [name, email, username, await bcrypt.hash(password, 12), role.id]);
+  await pool.query(`INSERT INTO audit_logs (action,module,entity,summary,user_name) VALUES ('criar','config','user',$1,'cli')`, [`Usuário criado via CLI: ${email} (${roleName})`]);
+  console.log(`${email}\t${username}\t${password}`);
 } else {
-  console.log('Uso: npm run migrate | npm run create-admin');
+  console.log('Uso: npm run migrate | npm run create-admin | npm run create-user');
 }
 await pool.end();
