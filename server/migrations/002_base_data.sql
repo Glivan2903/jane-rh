@@ -59,7 +59,7 @@ INSERT INTO financial_categories (name, type) VALUES
  ('Manutenção','despesa'),('Outras despesas','despesa');
 
 INSERT INTO units_of_measure (code, name) VALUES
- ('UN','Unidade'),('CX','Caixa'),('PCT','Pacote'),('L','Litro'),('KG','Quilo'),('M','Metro');
+ ('UN','Unidade'),('CX','Caixa'),('PCT','Pacote'),('L','Litro'),('ML','Mililitro'),('KG','Quilo'),('M','Metro');
 
 INSERT INTO product_categories (name) VALUES ('Geral');
 
