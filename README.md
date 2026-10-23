@@ -53,11 +53,15 @@ Não existe usuário padrão: o primeiro administrador é criado pelo comando ac
 npm run build && NODE_ENV=production COOKIE_SECURE=true npm start
 ```
 
-Coloque atrás de um proxy com **HTTPS** (Caddy/Nginx). O servidor precisa do cliente PostgreSQL (`pg_dump`/`psql`) para os backups, ou use `PG_DUMP_CMD`/`PSQL_CMD` (ver `.env.example`).
+Coloque atrás de um proxy com **HTTPS** (Caddy/Nginx). Se o servidor tiver `pg_dump` (ou `PG_DUMP_CMD`), ele é usado nos backups; sem ele, o sistema gera o dump sozinho pela conexão com o banco.
 
 ## Backups
 
-*Configurações → Backup* gera um `.tar.gz` (dump SQL + anexos) com SHA-256, lista o histórico, baixa, verifica a integridade e restaura (confirmação digitando RESTAURAR; antes cria um backup de segurança). `BACKUP_AUTO_HOURS` liga o agendamento automático.
+*Configurações → Backup* gera um `.tar.gz` (dados + anexos) com SHA-256, lista o histórico, baixa, verifica a integridade e restaura (confirmação digitando RESTAURAR; antes cria um backup de segurança). `BACKUP_AUTO_HOURS` liga o agendamento automático.
+
+A **restauração é por mesclagem**: só entram os registros e anexos do backup que não existem no sistema. Nada é apagado nem alterado; registros idênticos são ignorados e, se houver versão diferente do mesmo registro, a atual é mantida. O resultado (adicionados / idênticos / mantidos) aparece na tela e na auditoria.
+
+Sem disco gravável e permanente (Vercel, ou `BACKUP_STORAGE=db`), os arquivos de backup ficam guardados no próprio banco (tabela `backup_files`).
 
 **Os arquivos ficam no servidor (`BACKUP_DIR`). Copie-os regularmente para outro local:** backup no mesmo disco não protege contra a perda do servidor.
 

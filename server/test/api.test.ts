@@ -6,6 +6,7 @@ process.env.BACKUP_DIR = './storage/test-backups';
 process.env.LOGIN_RATE_LIMIT = '1000';
 
 import test, { before, after } from 'node:test';
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import type { Server } from 'node:http';
@@ -360,25 +361,72 @@ test('Exclusões: produto, lançamento e funcionário com registro em auditoria'
   assert.equal(l.length, 1); assert.ok(l[0].details.historico.length >= 1);
 });
 
-test('Backup real: gerar, verificar integridade, baixar e restaurar', async () => {
+test('Backup real (pg_dump): gerar, verificar, baixar e restaurar por mesclagem sem apagar nada', async () => {
   const admin = await login('admin@t.local'), con = await login('con@t.local');
   assert.equal((await con.post('/api/config/backups')).status, 403);
+  await pool.query(`INSERT INTO products (code,name,unit_id) VALUES ('BK-DEL','Vai ser apagado',1), ('BK-MUD','Nome original',1)`);
   const b = await admin.post('/api/config/backups');
-  assert.equal(b.status, 201, JSON.stringify(b.body)); assert.ok(b.body.size > 200);
+  assert.equal(b.status, 201, JSON.stringify(b.body)); assert.ok(b.body.size > 200); assert.equal(b.body.method, 'pg_dump');
   const list = (await admin.get('/api/config/backups')).body.rows;
   assert.equal(list[0].status, 'concluido');
   assert.equal((await admin.post(`/api/config/backups/${list[0].id}/verify`)).body.ok, true);
   const dl = await fetch(`${base}/api/config/backups/${list[0].id}/download`, { headers: { cookie: admin.cookie } });
   assert.equal(dl.status, 200); assert.ok((await dl.arrayBuffer()).byteLength > 200);
 
-  // restaurar: cria produto depois do backup e confirma que some
-  const before = (await pool.query('SELECT count(*)::int n FROM products')).rows[0].n;
-  await pool.query(`INSERT INTO products (code,name,unit_id) VALUES ('ZZ-TEMP','Temporário',1)`);
+  // depois do backup: apaga um, altera outro e cria um novo
+  await pool.query(`DELETE FROM products WHERE code='BK-DEL'`);
+  await pool.query(`UPDATE products SET name='Nome alterado' WHERE code='BK-MUD'`);
+  await pool.query(`INSERT INTO products (code,name,unit_id) VALUES ('BK-NOVO','Criado depois',1)`);
   assert.equal((await admin.post(`/api/config/backups/${list[0].id}/restore`, { confirm: 'nao' })).status, 422);
   const rst = await admin.post(`/api/config/backups/${list[0].id}/restore`, { confirm: 'RESTAURAR' });
   assert.equal(rst.status, 200, JSON.stringify(rst.body));
-  assert.equal((await pool.query('SELECT count(*)::int n FROM products')).rows[0].n, before);
-  assert.equal((await new Client().get('/api/auth/me')).status, 401);
-  const again = await login('admin@t.local');
-  assert.ok((await again.get('/api/config/backups')).body.rows.length >= 2); // inclui backup de segurança pré-restauração
+  assert.equal(rst.body.adicionados, 1); assert.ok(rst.body.identicos > 0); assert.ok(rst.body.mantidos >= 1);
+  const name = async (code: string) => (await pool.query('SELECT name FROM products WHERE code=$1', [code])).rows[0]?.name;
+  assert.equal(await name('BK-DEL'), 'Vai ser apagado');   // apagado volta
+  assert.equal(await name('BK-MUD'), 'Nome alterado');     // versão atual é mantida
+  assert.equal(await name('BK-NOVO'), 'Criado depois');    // criado depois continua
+  assert.equal((await admin.get('/api/auth/me')).status, 200); // ninguém é desconectado
+  assert.ok((await admin.get('/api/config/backups')).body.rows.length >= 2); // inclui backup de segurança pré-restauração
+});
+
+test('Backup sem pg_dump/psql: dump nativo guardado no banco, baixar e restaurar', async () => {
+  const { config } = await import('../src/config.js');
+  const saved = { dump: config.pgDumpCmd, psql: config.psqlCmd, path: process.env.PATH };
+  config.pgDumpCmd = ''; config.psqlCmd = ''; process.env.BACKUP_STORAGE = 'db';
+  process.env.PATH = (saved.path ?? '').split(':').filter((d) => !fs.existsSync(`${d}/pg_dump`)).join(':');
+  try {
+    const admin = await login('admin@t.local');
+    await pool.query(`INSERT INTO products (code,name,unit_id) VALUES ('NAT-1','Aspas '' e \\ barra; fim',1)`);
+    // auto-referência: gestor criado DEPOIS do subordinado (ordem de inserção não resolve sozinha)
+    const sub = (await admin.post('/api/rh/employees', emp({ cpf: '12345678909', fullName: 'Ana Subordinada' }))).body.id;
+    const chefe = (await admin.post('/api/rh/employees', emp({ cpf: '98765432100', fullName: 'Carlos Chefe' }))).body.id;
+    assert.ok(sub && chefe);
+    await pool.query('UPDATE employees SET manager_id=$1 WHERE id=$2', [chefe, sub]);
+    const hist = (await pool.query('SELECT count(*)::int n FROM employment_history')).rows[0].n;
+    const b = await admin.post('/api/config/backups');
+    assert.equal(b.status, 201, JSON.stringify(b.body)); assert.equal(b.body.method, 'nativo'); assert.equal(b.body.storage, 'banco');
+    assert.equal((await pool.query('SELECT 1 FROM backup_files WHERE filename=$1', [b.body.filename])).rowCount, 1);
+    assert.equal((await admin.post(`/api/config/backups/${b.body.id}/verify`)).body.ok, true);
+    const dl = await fetch(`${base}/api/config/backups/${b.body.id}/download`, { headers: { cookie: admin.cookie } });
+    assert.equal(dl.status, 200); assert.equal((await dl.arrayBuffer()).byteLength, b.body.size);
+
+    // depois do backup: some o produto e os dois funcionários (com histórico); entra um produto novo
+    await pool.query(`DELETE FROM products WHERE code='NAT-1'`);
+    assert.equal((await admin.del(`/api/rh/employees/${sub}`)).status, 200);
+    assert.equal((await admin.del(`/api/rh/employees/${chefe}`)).status, 200);
+    await pool.query(`INSERT INTO products (code,name,unit_id) VALUES ('NAT-2','Depois do backup',1)`);
+    const rst = await admin.post(`/api/config/backups/${b.body.id}/restore`, { confirm: 'RESTAURAR' });
+    assert.equal(rst.status, 200, JSON.stringify(rst.body));
+    assert.equal((await pool.query(`SELECT count(*)::int n FROM products WHERE code='NAT-2'`)).rows[0].n, 1);
+    assert.equal((await pool.query(`SELECT name FROM products WHERE code='NAT-1'`)).rows[0].name, "Aspas ' e \\ barra; fim");
+    assert.equal((await pool.query('SELECT manager_id FROM employees WHERE id=$1', [sub])).rows[0].manager_id, chefe);
+    assert.equal((await pool.query('SELECT count(*)::int n FROM employment_history')).rows[0].n, hist);
+    const rows = (await admin.get('/api/config/backups')).body.rows;
+    assert.ok(rows.some((r: any) => r.filename === b.body.filename && r.restoredAt));
+    // sequências não voltam para trás: um novo registro não colide com os restaurados
+    const novo = await admin.post('/api/rh/employees', emp({ cpf: '24681357928', fullName: 'Depois da Restauração' }));
+    assert.equal(novo.status, 201, JSON.stringify(novo.body));
+  } finally {
+    config.pgDumpCmd = saved.dump; config.psqlCmd = saved.psql; process.env.PATH = saved.path; delete process.env.BACKUP_STORAGE;
+  }
 });

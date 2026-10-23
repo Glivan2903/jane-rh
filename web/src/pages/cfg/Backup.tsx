@@ -10,7 +10,7 @@ interface B { id: number; filename: string; kind: string; status: string; sizeBy
 const size = (n: string | null) => (n == null ? '—' : Number(n) > 1048576 ? `${(Number(n) / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(Number(n) / 1024))} KB`);
 
 export default function Backup() {
-  const { data, loading, error, reload } = useFetch<{ rows: B[]; info: { dir: string; autoHours: number } }>('/config/backups');
+  const { data, loading, error, reload } = useFetch<{ rows: B[]; info: { dir: string | null; autoHours: number } }>('/config/backups');
   const toast = useToast(); const confirm = useConfirm();
   const [busy, setBusy] = useState<string | null>(null); const [restore, setRestore] = useState<B | null>(null); const [word, setWord] = useState('');
   const rows = data?.rows ?? [];
@@ -27,9 +27,10 @@ export default function Backup() {
   const doRestore = async () => {
     if (!restore) return; setBusy('r');
     try {
-      await api.post(`/config/backups/${restore.id}/restore`, { confirm: word });
-      toast.success('Backup restaurado. Faça login novamente.'); setTimeout(() => location.assign('/login'), 1500);
-    } catch (e) { toast.error(errMsg(e)); setBusy(null); }
+      const r = await api.post<{ adicionados: number; identicos: number; mantidos: number }>(`/config/backups/${restore.id}/restore`, { confirm: word });
+      toast.success(`Backup restaurado: ${r.adicionados} registro(s) adicionado(s), ${r.identicos} já existia(m) idêntico(s), ${r.mantidos} mantido(s) como estava(m).`);
+      setRestore(null); reload();
+    } catch (e) { toast.error(errMsg(e)); } finally { setBusy(null); }
   };
 
   const cols: Col<B>[] = [
@@ -50,14 +51,15 @@ export default function Backup() {
       <PageHeader title="Backup e restauração" subtitle="Backups reais do banco de dados e dos anexos (arquivo .tar.gz com SHA-256)."
         actions={<button className="btn-primary" onClick={run} disabled={!!busy}>{busy === 'run' ? <Spinner /> : <DatabaseBackup className="h-4 w-4" />}Executar backup agora</button>} />
       <div className="mb-4 flex gap-3 rounded-xl border border-info/30 bg-info/10 p-3 text-sm"><Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
-        <div>Os arquivos ficam em <code className="rounded bg-muted px-1">{data?.info.dir ?? '…'}</code> no servidor. <b>Copie-os periodicamente para um local separado</b> (outro servidor ou armazenamento externo). Backup automático: {data?.info.autoHours ? `a cada ${data.info.autoHours} h` : 'desativado (defina BACKUP_AUTO_HOURS no servidor)'}.
-          Antes de qualquer restauração, um backup de segurança é criado automaticamente.</div></div>
+        <div>{data && !data.info.dir ? <>Os arquivos ficam guardados no próprio banco de dados (o servidor não tem disco permanente). <b>Baixe-os periodicamente e guarde em um local separado</b>.</>
+          : <>Os arquivos ficam em <code className="rounded bg-muted px-1">{data?.info.dir ?? '…'}</code> no servidor. <b>Copie-os periodicamente para um local separado</b> (outro servidor ou armazenamento externo).</>} Backup automático: {data?.info.autoHours ? `a cada ${data.info.autoHours} h` : 'desativado (defina BACKUP_AUTO_HOURS no servidor)'}.
+          A restauração só acrescenta o que falta (não apaga nem altera dados atuais) e antes dela um backup de segurança é criado automaticamente.</div></div>
       <DataTable<B> cols={cols} rows={rows} loading={loading} error={error} onRetry={reload} list={noop} empty={<Empty icon={DatabaseBackup} title="Nenhum backup ainda" hint="Execute o primeiro backup manual." />} />
       {restore && (
         <Modal title="Restaurar backup" size="sm" onClose={() => busy !== 'r' && setRestore(null)}
           footer={<><button className="btn-outline" onClick={() => setRestore(null)} disabled={busy === 'r'}>Cancelar</button><button className="btn-danger" disabled={word !== 'RESTAURAR' || busy === 'r'} onClick={doRestore}>{busy === 'r' && <Spinner />}Restaurar</button></>}>
           <div className="space-y-3 text-sm">
-            <p className="rounded-lg border border-danger/40 bg-danger/10 p-3 text-danger"><b>Atenção:</b> todos os dados atuais serão substituídos pelo conteúdo de <span className="font-mono">{restore.filename}</span> ({dmyTime(restore.createdAt)}). Todos os usuários serão desconectados.</p>
+            <p className="rounded-lg border border-info/30 bg-info/10 p-3">Os registros de <span className="font-mono">{restore.filename}</span> ({dmyTime(restore.createdAt)}) que não existem hoje serão <b>adicionados</b>. <b>Nada do que está no sistema agora é apagado ou alterado</b>: registros iguais são ignorados e, quando houver uma versão diferente do mesmo registro, a atual é mantida.</p>
             <label className="block text-xs font-semibold">Digite RESTAURAR para confirmar<input className="input mt-1" value={word} onChange={(e) => setWord(e.target.value)} autoFocus /></label>
           </div>
         </Modal>)}
