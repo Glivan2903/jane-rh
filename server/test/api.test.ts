@@ -328,6 +328,21 @@ test('Exclusões: produto, lançamento e funcionário com registro em auditoria'
   assert.equal((await admin.del(`/api/fin/transactions/${t1}`)).status, 404);
   assert.equal((await logs('transaction')).length, 1);
 
+  // estorno da baixa: volta a pendente, permite nova baixa, edição de valor e exclusão
+  const con = await login('con@t.local');
+  assert.equal((await con.post(`/api/fin/transactions/${t2}/unsettle`, {})).status, 403);
+  assert.equal((await admin.post(`/api/fin/transactions/${t2}/unsettle`, { reason: 'marcada por engano' })).status, 200);
+  assert.equal((await admin.post(`/api/fin/transactions/${t2}/unsettle`, {})).status, 409);
+  const st = (await pool.query('SELECT status, settled_date FROM financial_transactions WHERE id=$1', [t2])).rows[0];
+  assert.equal(st.status, 'pendente'); assert.equal(st.settled_date, null);
+  assert.equal((await pool.query('SELECT 1 FROM payment_records WHERE transaction_id=$1', [t2])).rowCount, 0);
+  const est = (await pool.query(`SELECT details FROM audit_logs WHERE action='estornar' AND entity_id=$1`, [t2])).rows;
+  assert.equal(est.length, 1); assert.equal(est[0].details.baixa.dataEfetiva, '2026-03-10');
+  assert.equal((await admin.post(`/api/fin/transactions/${t2}/settle`, { effectiveDate: '2026-03-11' })).status, 200);
+  assert.equal((await admin.post(`/api/fin/transactions/${t2}/unsettle`, {})).status, 200);
+  assert.equal((await admin.put(`/api/fin/transactions/${t2}`, { description: 'Baixada', categoryId: catR, amount: 65, competenceDate: '2026-03-01', dueDate: '2026-03-20' })).status, 200);
+  assert.equal((await admin.del(`/api/fin/transactions/${t2}`)).status, 200);
+
   // produto: sem movimentação exclui; com movimentação não
   const unit = (await admin.post('/api/est/units', { code: 'DL', name: 'Del unit' })).body.id;
   const p1 = (await admin.post('/api/est/products', { name: 'Sem mov', unitId: unit })).body.id;

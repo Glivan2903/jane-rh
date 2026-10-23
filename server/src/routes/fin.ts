@@ -189,6 +189,21 @@ finRouter.post('/transactions/:id/settle', requireAuth('fin.settle'), h(async (r
   res.json({ ok: true });
 }));
 
+// Estorno da baixa (pagamento/recebimento marcado por engano): o lançamento volta a pendente e pode ser
+// editado, cancelado ou excluído. O registro da baixa removida fica guardado na auditoria.
+finRouter.post('/transactions/:id/unsettle', requireAuth('fin.settle'), h(async (req, res) => {
+  const { reason } = parse(z.object({ reason: optStr(300) }), req.body);
+  await tx(async (c) => {
+    const cur = (await c.query('SELECT * FROM financial_transactions WHERE id=$1 FOR UPDATE', [req.params.id])).rows[0];
+    if (!cur) throw new HttpError(404, 'Lançamento não encontrado');
+    if (cur.status !== 'realizada') throw new HttpError(409, `Este lançamento não está ${cur.type === 'receita' ? 'recebido' : 'pago'}.`);
+    const baixa = (await c.query('DELETE FROM payment_records WHERE transaction_id=$1 RETURNING effective_date AS "dataEfetiva", method AS forma, user_name AS "registradaPor", created_at AS "registradaEm"', [cur.id])).rows[0];
+    await c.query(`UPDATE financial_transactions SET status='pendente', settled_date=NULL, updated_at=now() WHERE id=$1`, [cur.id]);
+    await audit(req, { action: 'estornar', module: 'financeiro', entity: 'transaction', entityId: cur.id, summary: `${cur.type === 'receita' ? 'Recebimento' : 'Pagamento'} estornado: ${cur.description} — R$ ${Number(cur.amount).toFixed(2).replace('.', ',')}`, details: { motivo: reason, baixa } }, c);
+  });
+  res.json({ ok: true });
+}));
+
 finRouter.post('/transactions/:id/cancel', requireAuth('fin.cancel'), h(async (req, res) => {
   const { reason } = parse(z.object({ reason: optStr(300) }), req.body);
   await tx(async (c) => {

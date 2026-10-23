@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Ban, CheckCheck, Paperclip, Pencil, Plus, Trash2, Wallet } from 'lucide-react';
+import { Ban, CheckCheck, Paperclip, Pencil, Plus, Trash2, Undo2, Wallet } from 'lucide-react';
 import { Badge, DataTable, Empty, Modal, PageHeader, type Col, type Tone } from '../../components/ui';
 import { FCheck, FilterBar, FilterDate, FilterSelect, FInput, FSelect, FTextarea, SearchBox, SubmitButton } from '../../components/forms';
 import { api } from '../../lib/api';
@@ -50,6 +50,7 @@ function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; 
         }, validate);
         if (ok) { toast.success('Lançamento salvo.'); onSaved(); }
       }}>
+        {locked && <p className="rounded-lg bg-muted px-3 py-2 text-xs sm:col-span-2">Lançamento {isR ? 'recebido' : 'pago'}: valor e datas ficam travados. Para alterá-los, use <b>Estornar baixa</b> na lista.</p>}
         <FInput f={f} name="description" label="Descrição" required className="sm:col-span-2" autoFocus />
         <FSelect f={f} name="categoryId" label="Categoria financeira" required options={(cats.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         <FInput f={f} name="party" label={isR ? 'Cliente / origem' : 'Fornecedor / beneficiário'} />
@@ -94,7 +95,7 @@ function SettleModal({ tx, onClose, onDone }: { tx: Tx; onClose: () => void; onD
         <p className="rounded-lg bg-muted p-3 text-sm"><b>{tx.description}</b><br />{brl(tx.amount)} · vence em {dmy(tx.dueDate)}</p>
         <FInput f={f} name="effectiveDate" label={isR ? 'Data do recebimento' : 'Data do pagamento'} type="date" required max={todayIso()} />
         <FSelect f={f} name="method" label="Forma" options={METHODS.map((m) => ({ value: m, label: m }))} />
-        <p className="text-xs text-muted-foreground">A baixa não pode ser desfeita nem duplicada. Fica registrada com seu usuário e a data da operação.</p>
+        <p className="text-xs text-muted-foreground">A baixa fica registrada com seu usuário e a data da operação. Se marcar por engano, use <b>Estornar baixa</b> na lista.</p>
       </form>
     </Modal>
   );
@@ -115,6 +116,11 @@ export default function Transactions({ type }: { type: 'receita' | 'despesa' }) 
     try { await api.post(`/fin/transactions/${r.id}/cancel`, {}); toast.success('Lançamento cancelado.'); t.reload(); } catch (e) { toast.error(errMsg(e)); }
   };
 
+  const unsettle = async (r: Tx) => {
+    if (!(await confirm({ title: 'Estornar baixa?', message: `"${r.description}" voltará a ficar pendente (${isR ? 'a receber' : 'a pagar'}) e poderá ser editado, cancelado ou excluído. O estorno fica registrado na auditoria.`, confirmLabel: 'Estornar baixa', danger: true }))) return;
+    try { await api.post(`/fin/transactions/${r.id}/unsettle`, {}); toast.success(isR ? 'Recebimento estornado.' : 'Pagamento estornado.'); t.reload(); } catch (e) { toast.error(errMsg(e)); }
+  };
+
   const remove = async (r: Tx) => {
     if (!(await confirm({ title: 'Excluir lançamento?', message: `"${r.description}" será excluído definitivamente. A exclusão fica registrada nos logs de auditoria.`, confirmLabel: 'Excluir', danger: true }))) return;
     try { await api.del(`/fin/transactions/${r.id}`); toast.success('Lançamento excluído.'); t.reload(); } catch (e) { toast.error(errMsg(e)); }
@@ -130,6 +136,7 @@ export default function Transactions({ type }: { type: 'receita' | 'despesa' }) 
     { key: 'a', label: 'Ações', render: (r) => (
       <div className="flex gap-1">
         {r.storedStatus === 'pendente' && can('fin.settle') && <button className="btn-ghost btn-sm text-success" title={isR ? 'Registrar recebimento' : 'Registrar pagamento'} aria-label={`Baixar ${r.description}`} onClick={() => setSettle(r)}><CheckCheck className="h-4 w-4" /></button>}
+        {r.storedStatus === 'realizada' && can('fin.settle') && <button className="btn-ghost btn-sm text-warning" title="Estornar baixa (desfazer pagamento/recebimento)" aria-label={`Estornar ${r.description}`} onClick={() => unsettle(r)}><Undo2 className="h-4 w-4" /></button>}
         {r.storedStatus !== 'cancelada' && can('fin.edit') && <button className="btn-ghost btn-sm" title="Editar" aria-label={`Editar ${r.description}`} onClick={() => setEdit(r)}><Pencil className="h-4 w-4" /></button>}
         {r.storedStatus === 'pendente' && can('fin.cancel') && <button className="btn-ghost btn-sm text-danger" title="Cancelar" aria-label={`Cancelar ${r.description}`} onClick={() => cancel(r)}><Ban className="h-4 w-4" /></button>}
         {r.storedStatus !== 'realizada' && can('fin.cancel') && <button className="btn-ghost btn-sm text-danger" title="Excluir" aria-label={`Excluir ${r.description}`} onClick={() => remove(r)}><Trash2 className="h-4 w-4" /></button>}
