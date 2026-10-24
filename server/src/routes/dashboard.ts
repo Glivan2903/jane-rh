@@ -8,6 +8,7 @@ import { stockSummary } from '../services/stock.js';
 import { getSettings } from '../services/settings.js';
 import { TODAY_SQL } from '../services/finance.js';
 import { DOC_STATUS } from '../services/docs.js';
+import { BATCH_STATUS } from '../services/batches.js';
 
 export const dashboardRouter = Router();
 
@@ -70,6 +71,13 @@ dashboardRouter.get('/notices', requireAuth(), h(async (req, res) => {
          FROM (SELECT ${DOC_STATUS} AS s FROM employee_documents d JOIN employee_document_types t ON t.id = d.type_id JOIN employees e ON e.id = d.employee_id WHERE e.status <> 'desligado') x`)).rows[0];
     if (r.venc) out.push({ id: 'doc-v', text: `${r.venc} documento(s) de funcionários vencido(s)`, to: '/rh/documentos?status=vencido', tone: 'danger' });
     if (r.breve) out.push({ id: 'doc-b', text: `${r.breve} documento(s) de funcionários a vencer`, to: '/rh/documentos?status=a_vencer', tone: 'warning' });
+  }
+  if (st.notify_batches_enabled && hasPerm(req, 'est.view')) {
+    const r = (await pool.query(
+      `SELECT count(*) FILTER (WHERE s = 'vencido')::int AS venc, count(*) FILTER (WHERE s = 'a_vencer')::int AS breve
+         FROM (SELECT ${BATCH_STATUS} AS s FROM stock_batches b JOIN products p ON p.id = b.product_id WHERE b.quantity > 0 AND p.active) x`)).rows[0];
+    if (r.venc) out.push({ id: 'lote-v', text: `${r.venc} lote(s) de produtos vencido(s) em estoque`, to: '/estoque/lotes?status=vencido', tone: 'danger' });
+    if (r.breve) out.push({ id: 'lote-b', text: `${r.breve} lote(s) de produtos a vencer`, to: '/estoque/lotes?status=a_vencer', tone: 'warning' });
   }
   res.json({ refreshMinutes: st.notify_refresh_minutes, notices: out });
 }));

@@ -8,6 +8,8 @@ export const SETTING_DEFAULTS = {
   notify_receivables: false,    // incluir contas a receber nos avisos de vencimento
   notify_stock_enabled: true,   // alertas de estoque mínimo / zerado
   notify_docs_enabled: true,    // avisar documentos de funcionários vencidos ou a vencer
+  notify_batches_enabled: true, // avisar lotes de produtos vencidos ou a vencer
+  batch_alert_days: 30,         // dias de antecedência do aviso de validade dos lotes
   notify_refresh_minutes: 2,    // intervalo de atualização das notificações
   upcoming_list_size: 8,        // itens na lista "próximas contas" do dashboard
 } as const;

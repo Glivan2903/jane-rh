@@ -18,6 +18,7 @@ import { cadRouter } from './routes/cad.js';
 import { bankingRouter } from './routes/banking.js';
 import { aiRouter } from './routes/ai.js';
 import { rhDocsRouter } from './routes/rhdocs.js';
+import { estxRouter } from './routes/estx.js';
 
 export function createApp() {
   const app = express();
@@ -44,6 +45,7 @@ export function createApp() {
   app.use('/api/rh', rhDocsRouter);
   app.use('/api/fin', finRouter);
   app.use('/api/fin', bankingRouter);
+  app.use('/api/est', estxRouter);          // antes do estRouter: '/products/lookup' não pode cair em '/products/:id'
   app.use('/api/est', estRouter);
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/company', companyRouter);
