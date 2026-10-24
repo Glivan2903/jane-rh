@@ -203,7 +203,7 @@ export function Layout() {
             </div>
           </div>
         </header>
-        <main ref={mainRef} className={fill ? 'min-h-0 flex-1 overflow-hidden p-2 sm:p-4' : 'flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6'} onClick={() => menu && setMenu(null)}>
+        <main ref={mainRef} className={fill ? 'min-h-0 flex-1 overflow-hidden p-3 sm:p-5 lg:p-6' : 'flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6'} onClick={() => menu && setMenu(null)}>
           <div className={fill ? 'h-full' : 'w-full'}><Outlet /></div>
         </main>
       </div>

@@ -92,7 +92,8 @@ aiRouter.post('/chat', requireAuth(), chatLimiter, h(async (req, res) => {
       `INSERT INTO ai_messages (conversation_id, role, content, blocks, tools, model, tokens_in, tokens_out) VALUES ($1,'assistant',$2,$3,$4,$5,$6,$7) RETURNING id`,
       [convId, text, r.blocks.length ? JSON.stringify(r.blocks) : null, r.tools, r.model, r.usage.in, r.usage.out])).rows[0];
     await pool.query('UPDATE ai_conversations SET updated_at = now() WHERE id = $1', [convId]);
-    await audit(req, { action: 'consulta_ia', module: 'ia', entity: 'ai_conversation', entityId: convId, summary: `Pergunta ao Assistente: ${message.slice(0, 160)}`,
+    await audit(req, { action: 'consulta_ia', module: 'ia', entity: 'ai_conversation', entityId: convId, summary: `Consulta ao Assistente (${r.tools.length ? r.tools.join(', ') : 'sem consulta a dados'})`,   // o texto da pergunta fica só no histórico do próprio usuário
+      
       details: { ferramentas: r.tools, modelo: r.model, consumoEntrada: r.usage.in, consumoSaida: r.usage.out } });
     if (suspectInput || r.suspicious || r.outputFiltered) {
       await audit(req, { action: 'alerta_ia', module: 'ia', entity: 'ai_conversation', entityId: convId, result: 'falha',
@@ -104,7 +105,7 @@ aiRouter.post('/chat', requireAuth(), chatLimiter, h(async (req, res) => {
     if (!abort.signal.aborted) {
       const msg = e instanceof GeminiError ? e.message : 'Não foi possível concluir a consulta. Tente novamente.';
       if (!(e instanceof GeminiError)) console.error('[ia] erro:', (e as Error).message);
-      await audit(req, { action: 'consulta_ia', module: 'ia', entity: 'ai_conversation', entityId: convId, summary: `Falha ao responder pergunta: ${message.slice(0, 120)}`, result: 'falha' }).catch(() => undefined);
+      await audit(req, { action: 'consulta_ia', module: 'ia', entity: 'ai_conversation', entityId: convId, summary: 'Falha ao responder uma pergunta ao Assistente', result: 'falha' }).catch(() => undefined);
       sse(res, { type: 'error', message: msg });
     }
   } finally { res.end(); }

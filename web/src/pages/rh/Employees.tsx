@@ -17,7 +17,7 @@ export const statusBadge = (s: Employee['status']) => s === 'ativo' ? <Badge ton
 
 export default function Employees() {
   const { can } = useAuth(); const nav = useNavigate(); const toast = useToast(); const confirm = useConfirm();
-  const [status, setStatus] = useState('ativo'); const [dep, setDep] = useState(''); const [pos, setPos] = useState('');
+  const [status, setStatus] = useState('todos'); const [dep, setDep] = useState(''); const [pos, setPos] = useState('');
   const [from, setFrom] = useState(''); const [to, setTo] = useState('');
   const deps = useFetch<{ id: number; name: string }[]>('/rh/departments', { active: 'true' });
   const poss = useFetch<{ id: number; name: string }[]>('/rh/positions', { active: 'true' });
@@ -60,7 +60,7 @@ export default function Employees() {
         <FilterDate label="Admissão de" value={from} onChange={setFrom} /><FilterDate label="até" value={to} onChange={setTo} />
       </FilterBar>
       <DataTable<Employee> cols={cols} rows={t.rows} loading={t.loading} error={t.error} onRetry={t.reload} list={t.list}
-        empty={<Empty icon={UserPlus} title={t.q || dep || pos || from || to || status !== 'ativo' ? 'Nenhum funcionário encontrado' : 'Nenhum funcionário cadastrado'}
+        empty={<Empty icon={UserPlus} title={t.q || dep || pos || from || to || status !== 'todos' ? 'Nenhum funcionário encontrado' : 'Nenhum funcionário cadastrado'}
           hint={t.q ? 'Revise a busca ou os filtros.' : 'Comece cadastrando o primeiro funcionário.'} action={addBtn} />} />
       {act?.kind === 'adm' && <AdmissionModal emp={act.emp} onClose={() => setAct(null)} onDone={() => { setAct(null); t.reload(); }} />}
       {act?.kind === 'term' && <TerminationModal emp={act.emp} onClose={() => setAct(null)} onDone={() => { setAct(null); t.reload(); }} />}
