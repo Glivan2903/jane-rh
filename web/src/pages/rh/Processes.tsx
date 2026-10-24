@@ -7,6 +7,7 @@ import { useAuth, useConfirm, useToast } from '../../lib/app';
 import { useFetch, useForm } from '../../lib/hooks';
 import { dmy, todayIso } from '../../lib/format';
 import { LookupPanel } from '../Lookup';
+import { DocTypesPanel } from './DocTypes';
 
 export interface EmpRef { id: string; fullName: string; status: 'ativo' | 'desligado' | 'pre_cadastro' }
 const CONTRACTS = ['CLT', 'PJ', 'Estágio', 'Temporário', 'Aprendiz', 'Autônomo', 'Outro'];
@@ -69,12 +70,13 @@ export function TerminationModal({ emp, onClose, onDone }: { emp: EmpRef; onClos
 }
 
 export function RhCatalogs() {
-  const [tab, setTab] = useState<'dep' | 'pos'>('dep');
+  const { can } = useAuth();
+  const [tab, setTab] = useState<'dep' | 'pos' | 'doc'>('dep');
   const base = { create: 'rh.create', edit: 'rh.edit', inactivate: 'rh.inactivate' };
   return (
     <div>
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'dep', label: 'Departamentos' }, { id: 'pos', label: 'Cargos' }]} />
-      {tab === 'dep'
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'dep', label: 'Departamentos' }, { id: 'pos', label: 'Cargos' }, ...(can('rh.documents') ? [{ id: 'doc' as const, label: 'Tipos de documento' }] : [])]} />
+      {tab === 'doc' ? <DocTypesPanel /> : tab === 'dep'
         ? <LookupPanel cfg={{ title: 'Departamentos', subtitle: 'Setores usados nos cadastros de funcionários.', url: '/rh/departments', label: 'Departamento', ...base }} />
         : <LookupPanel cfg={{ title: 'Cargos', subtitle: 'Cargos usados nos cadastros de funcionários.', url: '/rh/positions', label: 'Cargo', ...base }} />}
     </div>

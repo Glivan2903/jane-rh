@@ -13,6 +13,8 @@ import Dashboard from './pages/Dashboard';
 const Employees = lazy(() => import('./pages/rh/Employees'));
 const EmployeeForm = lazy(() => import('./pages/rh/EmployeeForm'));
 const EmployeeDetail = lazy(() => import('./pages/rh/EmployeeDetail'));
+const Celebrations = lazy(() => import('./pages/rh/Celebrations'));
+const RhDocuments = lazy(() => import('./pages/rh/Documents'));
 const RhReports = lazy(() => import('./pages/rh/Reports'));
 const RhCatalogs = lazy(() => import('./pages/rh/Processes').then((m) => ({ default: m.RhCatalogs })));
 const FinOverview = lazy(() => import('./pages/fin/Overview'));
@@ -70,6 +72,8 @@ export default function App() {
               <Route path="rh/funcionarios/:id/editar" element={g('rh.edit', <EmployeeForm />)} />
               <Route path="rh/admissao" element={<Navigate to="/rh/funcionarios" replace />} />
               <Route path="rh/desligamento" element={<Navigate to="/rh/funcionarios" replace />} />
+              <Route path="rh/celebracoes" element={g('rh.view', <Celebrations />)} />
+              <Route path="rh/documentos" element={g('rh.documents', <RhDocuments />)} />
               <Route path="rh/cadastros" element={g('rh.view', <RhCatalogs />)} />
               <Route path="rh/relatorios" element={g('rh.view', <RhReports />)} />
               <Route path="financeiro" element={g('fin.view', <FinOverview />)} />

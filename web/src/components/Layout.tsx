@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import {
-  Activity, AlertTriangle, Bot, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
+  Activity, AlertTriangle, Bot, Cake, FileCheck2, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
   ChevronDown, ChevronLeft, Landmark, Layers, LineChart, Link2, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon,
 } from 'lucide-react';
 import { useAuth, useTheme } from '../lib/app';
@@ -18,6 +18,8 @@ const NAV: Group[] = [
   { label: 'Assistente', icon: Bot, perm: [], ai: true, items: [{ to: '/assistente', label: 'Assistente de IA', icon: Sparkles }] },
   { label: 'RH / Pessoal', icon: Users, perm: ['rh.view'], items: [
     { to: '/rh/funcionarios', label: 'Funcionários', icon: Users },
+    { to: '/rh/celebracoes', label: 'Aniversários e tempo de casa', icon: Cake },
+    { to: '/rh/documentos', label: 'Documentos', icon: FileCheck2, perm: ['rh.documents'] },
     { to: '/rh/cadastros', label: 'Cargos e departamentos', icon: Building2 },
     { to: '/rh/relatorios', label: 'Relatórios', icon: FileBarChart },
   ] },

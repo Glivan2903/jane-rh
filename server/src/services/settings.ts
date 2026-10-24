@@ -7,6 +7,7 @@ export const SETTING_DEFAULTS = {
   notify_overdue_enabled: true, // avisar contas vencidas
   notify_receivables: false,    // incluir contas a receber nos avisos de vencimento
   notify_stock_enabled: true,   // alertas de estoque mínimo / zerado
+  notify_docs_enabled: true,    // avisar documentos de funcionários vencidos ou a vencer
   notify_refresh_minutes: 2,    // intervalo de atualização das notificações
   upcoming_list_size: 8,        // itens na lista "próximas contas" do dashboard
 } as const;

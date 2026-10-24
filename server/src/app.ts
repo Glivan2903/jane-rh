@@ -17,6 +17,7 @@ import { companyRouter } from './routes/company.js';
 import { cadRouter } from './routes/cad.js';
 import { bankingRouter } from './routes/banking.js';
 import { aiRouter } from './routes/ai.js';
+import { rhDocsRouter } from './routes/rhdocs.js';
 
 export function createApp() {
   const app = express();
@@ -40,6 +41,7 @@ export function createApp() {
   app.use('/api/config', configRouter);
   app.use('/api/config/backups', backupRouter);
   app.use('/api/rh', rhRouter);
+  app.use('/api/rh', rhDocsRouter);
   app.use('/api/fin', finRouter);
   app.use('/api/fin', bankingRouter);
   app.use('/api/est', estRouter);

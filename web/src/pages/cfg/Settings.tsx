@@ -8,7 +8,7 @@ import { useFetch } from '../../lib/hooks';
 interface Prefs {
   allow_negative_stock: boolean;
   notify_bills_enabled: boolean; notify_bills_days: number; notify_overdue_enabled: boolean; notify_receivables: boolean;
-  notify_stock_enabled: boolean; notify_refresh_minutes: number; upcoming_list_size: number;
+  notify_stock_enabled: boolean; notify_docs_enabled: boolean; notify_refresh_minutes: number; upcoming_list_size: number;
 }
 
 const Check = ({ checked, onChange, title, hint, disabled }: { checked: boolean; onChange: (v: boolean) => void; title: string; hint: string; disabled?: boolean }) => (
@@ -55,6 +55,7 @@ export default function Settings() {
             </div>
             <Check checked={f.notify_overdue_enabled} onChange={(v) => set('notify_overdue_enabled', v)} title="Avisar contas vencidas" hint="Mostra no sino o total de contas pendentes com vencimento já passado." />
             <Check checked={f.notify_receivables} onChange={(v) => set('notify_receivables', v)} title="Incluir contas a receber nos avisos" hint="Por padrão os avisos consideram só contas a pagar. Ative para avisar também recebimentos a vencer e vencidos." />
+            <Check checked={f.notify_docs_enabled} onChange={(v) => set('notify_docs_enabled', v)} title="Avisar documentos de funcionários" hint="Exibe no sino documentos vencidos e a vencer (para quem tem permissão de documentos do RH)." />
             <Check checked={f.notify_stock_enabled} onChange={(v) => set('notify_stock_enabled', v)} title="Avisar estoque baixo ou zerado" hint="Exibe no sino produtos abaixo do estoque mínimo e sem estoque." />
             <Num label="Atualização das notificações" suffix="minuto(s)" min={1} max={60} value={f.notify_refresh_minutes} onChange={(n) => set('notify_refresh_minutes', n)} error={errs.notify_refresh_minutes}
               hint="De quanto em quanto tempo o sino consulta novos avisos." />

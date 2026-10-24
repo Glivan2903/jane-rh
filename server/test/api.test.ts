@@ -1144,3 +1144,150 @@ test('Gemini: modelo sem cota é pulado na hora e lembrado (sem esperas); reserv
     await assert.rejects(run(), /indisponível/); assert.equal(calls.length, 6);
   } finally { globalThis.fetch = realFetch; resetGeminiCooldown(); delete process.env.GEMINI_MODEL; delete process.env.GEMINI_FALLBACK_MODELS; }
 });
+
+// ---------- Fase 3: RH ----------
+test('RH: aniversários e tempo de casa (mês, próximos 30 dias, só ativos)', async () => {
+  const admin = await login('admin@t.local'), con = await login('con@t.local');
+  const t = spToday(); const Y = Number(t.slice(0, 4));
+  const shift = (days: number, year: number) => { const d = new Date(`${t}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return `${year}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`; };
+  const ins = (i: number, name: string, birth: string | null, adm: string | null, status = 'ativo') =>
+    pool.query(`INSERT INTO employees (registration, full_name, cpf, birth_date, admission_date, status) VALUES ($1,$2,$3,$4,$5,$6)`, [`CEL-${i}`, name, `8880000000${i}`, birth, adm, status]);
+  await ins(1, 'Celeb Hoje', shift(0, 1990), shift(400, Y - 1));                // aniversariante hoje (35/36 anos)
+  await ins(2, 'Celeb Em Dez Dias', shift(10, 1985), null);
+  await ins(3, 'Celeb Daqui Quarenta', shift(40, 1980), null);                  // fora dos 30 dias
+  await ins(4, 'Celeb Tempo Casa', null, shift(5, Y - 3));                      // 3 anos de casa em 5 dias
+  await ins(5, 'Celeb Admitido Este Ano', null, shift(-1, Y));                  // 0 ano: não é aniversário de empresa
+  await ins(6, 'Celeb Desligado', shift(0, 1992), shift(0, Y - 2), 'desligado');
+  assert.equal((await con.get('/api/rh/celebrations')).status, 200);             // rh.view basta
+  const r = (await admin.get(`/api/rh/celebrations?month=${Number(t.slice(5, 7))}`)).body;
+  const mine = (a: any[]) => a.filter((x) => String(x.name).startsWith('Celeb'));
+  const hoje = mine(r.birthdays).find((b: any) => b.name === 'Celeb Hoje');
+  assert.ok(hoje && hoje.isToday === true && hoje.turns === Y - 1990 && hoje.day === Number(t.slice(8, 10)));
+  assert.ok(!mine(r.birthdays).some((b: any) => b.name === 'Celeb Desligado'));
+  assert.ok(!mine(r.workAnniversaries).some((w: any) => ['Celeb Admitido Este Ano', 'Celeb Desligado'].includes(w.name)));
+  const up = mine(r.upcoming);
+  const names = up.map((u: any) => `${u.name}|${u.kind}|${u.number}|${u.daysLeft}`);
+  assert.ok(names.includes(`Celeb Hoje|aniversario|${Y - 1990}|0`), names.join(','));
+  assert.ok(names.includes(`Celeb Em Dez Dias|aniversario|${new Date(`${shift(10, 1985)}T12:00:00Z`).getUTCFullYear() < 0 ? 0 : Number(shift(10, Y).slice(0, 4)) - 1985}|10`), names.join(','));
+  assert.ok(names.includes('Celeb Tempo Casa|tempo_de_casa|3|5'), names.join(','));
+  assert.ok(!up.some((u: any) => ['Celeb Daqui Quarenta', 'Celeb Admitido Este Ano', 'Celeb Desligado'].includes(u.name)));
+  assert.ok(up.every((u: any, i: number) => i === 0 || up[i - 1].date <= u.date));      // ordem cronológica
+  // mês inválido vira o mês atual
+  assert.equal((await admin.get('/api/rh/celebrations?month=99')).body.month, 12);
+});
+
+function pdf(extra = ''): Buffer { return Buffer.from(`%PDF-1.4\n1 0 obj<<>>endobj\n${extra}\n%%EOF`); }
+async function docReq(c: Client, method: 'POST' | 'PUT', url: string, fields: Record<string, string>, file?: { buf: Buffer; name: string }) {
+  const fd = new FormData(); for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+  if (file) fd.append('file', new Blob([file.buf]), file.name);
+  const r = await fetch(base + url, { method, headers: { 'x-requested-with': 'gentis', cookie: c.cookie }, body: fd });
+  return { status: r.status, body: await r.json().catch(() => null) };
+}
+
+test('RH documentos: tipos, validade, arquivo conferido pelo conteúdo, situações, download, avisos e exclusão', async () => {
+  const admin = await login('admin@t.local'), con = await login('con@t.local'), fin = await login('fin@t.local');
+  const t = spToday(); const day = (n: number) => { const d = new Date(`${t}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const emp = (await pool.query(`SELECT id FROM employees WHERE full_name='Ordem A'`)).rows[0].id as string;
+  const gone = (await pool.query(`INSERT INTO employees (registration, full_name, cpf, status) VALUES ('DOC-G','Doc Desligado','8870000000','desligado') RETURNING id`)).rows[0].id as string;
+
+  // permissão própria: quem só tem rh.view (Consulta) e o Financeiro não acessam documentos
+  assert.equal((await con.get(`/api/rh/employees/${emp}/documents`)).status, 403);
+  assert.equal((await fin.get('/api/rh/documents')).status, 403);
+  assert.equal((await con.get('/api/rh/document-types')).status, 200);            // a lista de tipos não é sensível
+
+  const types = (await admin.get('/api/rh/document-types')).body;
+  const aso = types.find((x: any) => x.name.startsWith('ASO')), exame = types.find((x: any) => x.name === 'Exame admissional');
+  assert.ok(aso.requiresExpiry && aso.alertDays === 30 && !exame.requiresExpiry);
+  const novo = await admin.post('/api/rh/document-types', { name: 'Atestado Teste', requiresExpiry: true, alertDays: 10 });
+  assert.equal(novo.status, 201); assert.equal((await admin.post('/api/rh/document-types', { name: 'atestado teste' })).status, 409);
+  assert.equal((await admin.put(`/api/rh/document-types/${novo.body.id}`, { name: 'Atestado Teste', requiresExpiry: true, alertDays: 10, active: false })).status, 200);
+
+  const add = (fields: Record<string, string>, file?: { buf: Buffer; name: string }, who = emp) => docReq(admin, 'POST', `/api/rh/employees/${who}/documents`, fields, file);
+  // validações
+  assert.equal((await add({ typeId: String(aso.id) })).status, 422);                                                      // ASO exige validade
+  assert.equal((await add({ typeId: String(aso.id), issueDate: day(0), expiresAt: day(-5) })).status, 422);              // validade antes da emissão
+  assert.equal((await add({ typeId: String(novo.body.id), expiresAt: day(30) })).status, 422);                            // tipo inativo
+  assert.equal((await add({ typeId: String(exame.id) }, { buf: Buffer.from('MZ-programa-disfarçado'), name: 'exame.pdf' })).status, 422);   // extensão não vale: confere o conteúdo
+  assert.equal((await add({ typeId: String(exame.id) }, undefined, '00000000-0000-0000-0000-000000000000')).status, 404);
+
+  // situações: vencido, a vencer (dentro do aviso de 30 dias), válido, sem validade
+  const bytes = pdf('conteúdo do ASO vencido');
+  const vencido = await add({ typeId: String(aso.id), title: 'ASO antigo', issueDate: day(-400), expiresAt: day(-3) }, { buf: bytes, name: 'aso antigo.pdf' });
+  assert.equal(vencido.status, 201, JSON.stringify(vencido.body));
+  const breve = await add({ typeId: String(aso.id), title: 'ASO novo', expiresAt: day(12) }, { buf: pdf('novo'), name: 'aso novo.pdf' });
+  const valido = await add({ typeId: String(aso.id), title: 'ASO futuro', expiresAt: day(200) });
+  const semVal = await add({ typeId: String(exame.id), title: 'Admissional' }, { buf: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]), name: 'foto.png' });
+  const doGone = await add({ typeId: String(aso.id), expiresAt: day(-30) }, undefined, gone);
+  for (const r of [breve, valido, semVal, doGone]) assert.equal(r.status, 201, JSON.stringify(r.body));
+
+  const mine = (await admin.get(`/api/rh/employees/${emp}/documents`)).body;
+  const st = Object.fromEntries(mine.map((d: any) => [d.title, d.status]));
+  assert.deepEqual(st, { 'ASO antigo': 'vencido', 'ASO novo': 'a_vencer', 'ASO futuro': 'valido', Admissional: 'sem_validade' });
+  assert.equal(mine.find((d: any) => d.title === 'ASO antigo').daysLeft, -3); assert.equal(mine.find((d: any) => d.title === 'ASO novo').daysLeft, 12);
+  assert.equal(mine.find((d: any) => d.title === 'ASO antigo').fileName, 'aso antigo.pdf');
+
+  // lista geral: padrão = vencidos e a vencer, só de funcionários não desligados
+  const att = (await admin.get('/api/rh/documents')).body;
+  assert.deepEqual(att.rows.map((d: any) => d.title), ['ASO antigo', 'ASO novo']);                                       // ordenados por validade; o do desligado fica de fora
+  assert.equal((await admin.get('/api/rh/documents?status=valido')).body.total, 1);
+  assert.equal((await admin.get('/api/rh/documents?status=todos&employeeStatus=todos')).body.total, 5);
+  assert.equal((await admin.get('/api/rh/documents?status=vencido&employeeStatus=desligado')).body.total, 1);
+  assert.equal((await admin.get(`/api/rh/documents?status=todos&typeId=${exame.id}`)).body.total, 1);
+  const sum = (await admin.get('/api/rh/documents/summary')).body; assert.equal(sum.vencidos, 1); assert.equal(sum.aVencer, 1);
+
+  // download devolve exatamente o que foi enviado, com cabeçalhos seguros, e é auditado; sem permissão, 403
+  const dl = await fetch(`${base}/api/rh/documents/${vencido.body.id}/file`, { headers: { cookie: admin.cookie } });
+  assert.equal(dl.status, 200); assert.equal(dl.headers.get('content-type'), 'application/pdf'); assert.equal(dl.headers.get('x-content-type-options'), 'nosniff');
+  assert.match(dl.headers.get('content-disposition') ?? '', /attachment; filename\*=UTF-8''aso%20antigo\.pdf/);
+  assert.ok(Buffer.from(await dl.arrayBuffer()).equals(bytes));
+  assert.equal((await fetch(`${base}/api/rh/documents/${vencido.body.id}/file`, { headers: { cookie: con.cookie } })).status, 403);
+  assert.equal((await fetch(`${base}/api/rh/documents/${valido.body.id}/file`, { headers: { cookie: admin.cookie } })).status, 404);   // documento sem arquivo
+  assert.ok((await pool.query(`SELECT 1 FROM audit_logs WHERE action='download_documento'`)).rowCount! >= 1);
+
+  // sino: avisos de documentos, desligáveis nos parâmetros
+  const notices = () => admin.get('/api/dashboard/notices').then((r) => r.body.notices.map((n: any) => n.text).join(' | '));
+  assert.match(await notices(), /1 documento\(s\) de funcionários vencido\(s\).*1 documento\(s\) de funcionários a vencer/);
+  assert.equal((await admin.put('/api/config/settings', { notify_docs_enabled: false })).status, 200);
+  assert.doesNotMatch(await notices(), /documento/);
+  await admin.put('/api/config/settings', { notify_docs_enabled: true });
+
+  // editar: trocar arquivo, remover arquivo e regra de validade
+  assert.equal((await docReq(admin, 'PUT', `/api/rh/documents/${breve.body.id}`, { typeId: String(aso.id), title: 'ASO novo', expiresAt: '' })).status, 422);
+  const novoArq = pdf('arquivo substituído');
+  assert.equal((await docReq(admin, 'PUT', `/api/rh/documents/${breve.body.id}`, { typeId: String(aso.id), title: 'ASO renovado', expiresAt: day(300) }, { buf: novoArq, name: 'renovado.pdf' })).status, 200);
+  assert.ok(Buffer.from(await (await fetch(`${base}/api/rh/documents/${breve.body.id}/file`, { headers: { cookie: admin.cookie } })).arrayBuffer()).equals(novoArq));
+  assert.equal((await docReq(admin, 'PUT', `/api/rh/documents/${breve.body.id}`, { typeId: String(aso.id), title: 'ASO renovado', expiresAt: day(300), removeFile: 'true' })).status, 200);
+  assert.equal((await pool.query('SELECT 1 FROM employee_document_files WHERE document_id=$1', [breve.body.id])).rowCount, 0);
+  assert.equal((await admin.get('/api/rh/documents/summary')).body.aVencer, 0);
+
+  // excluir (auditado) e remoção em cascata junto com o funcionário
+  assert.equal((await admin.del(`/api/rh/documents/${semVal.body.id}`)).status, 200);
+  assert.equal((await admin.del(`/api/rh/documents/${semVal.body.id}`)).status, 404);
+  assert.ok((await pool.query(`SELECT 1 FROM audit_logs WHERE action='excluir' AND entity='employee_document'`)).rowCount! >= 1);
+  assert.ok(!JSON.stringify((await pool.query(`SELECT summary, details FROM audit_logs WHERE entity='employee_document'`)).rows).includes('conteúdo do ASO'));   // auditoria nunca guarda o conteúdo dos arquivos
+  await pool.query('DELETE FROM employees WHERE id=$1', [gone]);
+  assert.equal((await pool.query('SELECT 1 FROM employee_documents WHERE employee_id=$1', [gone])).rowCount, 0);
+});
+
+test('Backup: documentos com arquivo (binário) voltam na restauração por mesclagem', async () => {
+  const { config } = await import('../src/config.js');
+  const saved = { dump: config.pgDumpCmd, psql: config.psqlCmd, path: process.env.PATH };
+  config.pgDumpCmd = ''; config.psqlCmd = ''; process.env.BACKUP_STORAGE = 'db';
+  process.env.PATH = (saved.path ?? '').split(':').filter((d) => !fs.existsSync(`${d}/pg_dump`)).join(':');
+  try {
+    const admin = await login('admin@t.local');
+    const emp = (await pool.query(`SELECT id FROM employees WHERE full_name='Ordem B'`)).rows[0].id as string;
+    const tipo = (await pool.query(`SELECT id FROM employee_document_types WHERE name='Exame admissional'`)).rows[0].id as number;
+    const bin = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.from([0, 1, 2, 255, 254, 92, 92, 9, 10, 13, 0x5c, 0x6e]), Buffer.from('\n%%EOF')]);   // zeros, barras invertidas, tab e quebras de linha
+    const c = await docReq(admin, 'POST', `/api/rh/employees/${emp}/documents`, { typeId: String(tipo), title: 'Binário' }, { buf: bin, name: 'bin.pdf' });
+    assert.equal(c.status, 201, JSON.stringify(c.body));
+    const b = await admin.post('/api/config/backups'); assert.equal(b.status, 201, JSON.stringify(b.body));
+    await pool.query('DELETE FROM employee_documents WHERE id=$1', [c.body.id]);                   // some depois do backup
+    assert.equal((await pool.query('SELECT 1 FROM employee_document_files WHERE document_id=$1', [c.body.id])).rowCount, 0);
+    const rst = await admin.post(`/api/config/backups/${b.body.id}/restore`, { confirm: 'RESTAURAR' });
+    assert.equal(rst.status, 200, JSON.stringify(rst.body));
+    const back = (await pool.query('SELECT data FROM employee_document_files WHERE document_id=$1', [c.body.id])).rows[0];
+    assert.ok(back && Buffer.from(back.data).equals(bin), 'o arquivo restaurado deve ser idêntico byte a byte');
+    assert.equal((await pool.query('SELECT file_name FROM employee_documents WHERE id=$1', [c.body.id])).rows[0].file_name, 'bin.pdf');
+  } finally { config.pgDumpCmd = saved.dump; config.psqlCmd = saved.psql; process.env.PATH = saved.path; delete process.env.BACKUP_STORAGE; }
+});

@@ -194,6 +194,7 @@ const settingsSchema = z.object({
   notify_overdue_enabled: z.boolean(),
   notify_receivables: z.boolean(),
   notify_stock_enabled: z.boolean(),
+  notify_docs_enabled: z.boolean(),
   notify_refresh_minutes: z.number().int().min(1, 'Mínimo 1 minuto').max(60, 'Máximo 60 minutos'),
   upcoming_list_size: z.number().int().min(3, 'Mínimo 3').max(30, 'Máximo 30'),
 }).partial();
