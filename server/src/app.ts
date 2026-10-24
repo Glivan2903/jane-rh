@@ -56,7 +56,16 @@ export function createApp() {
   // Produção: serve o frontend compilado (mesma origem).
   const dist = path.resolve(process.cwd(), '../web/dist');
   if (fs.existsSync(dist)) {
-    app.use(express.static(dist, { index: false, maxAge: '1h' }));
+    app.use(express.static(dist, {
+      index: false, maxAge: '1h',
+      setHeaders(res, file) {
+        // service worker, manifesto e index nunca ficam presos em cache (a versão nova precisa chegar); arquivos com hash no nome são eternos
+        if (/[\\/](sw\.js|manifest\.webmanifest|index\.html)$/.test(file)) res.setHeader('Cache-Control', 'no-cache');
+        else if (/[\\/]assets[\\/]/.test(file)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        if (file.endsWith('manifest.webmanifest')) res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+        if (file.endsWith('sw.js')) res.setHeader('Service-Worker-Allowed', '/');
+      },
+    }));
     app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
   }
 
