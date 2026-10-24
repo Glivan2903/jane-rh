@@ -95,6 +95,8 @@ export function Layout() {
     const k = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); if (window.innerWidth >= 1024) toggleIcons(); else setOpen((o) => !o); } };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
   });
+  // Página nova sempre abre no topo: o <main> é o que rola e não é recriado ao trocar de rota, então a posição anterior ficava guardada.
+  useEffect(() => { mainRef.current?.scrollTo({ top: 0, left: 0 }); window.scrollTo(0, 0); }, [loc.pathname]);
   useEffect(() => {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     gsap.fromTo(mainRef.current, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out', clearProps: 'all' });
