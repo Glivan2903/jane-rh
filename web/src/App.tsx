@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Setup from './pages/Setup';
 import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
+import ComingSoon from './pages/ComingSoon';
 
 const Employees = lazy(() => import('./pages/rh/Employees'));
 const EmployeeForm = lazy(() => import('./pages/rh/EmployeeForm'));
@@ -59,6 +60,14 @@ export default function App() {
               <Route path="rh/funcionarios/:id/editar" element={g('rh.edit', <EmployeeForm />)} />
               <Route path="rh/admissao" element={<Navigate to="/rh/funcionarios" replace />} />
               <Route path="rh/desligamento" element={<Navigate to="/rh/funcionarios" replace />} />
+              <Route path="assistente" element={<ComingSoon slug="assistente" />} />
+              <Route path="rh/celebracoes" element={g('rh.view', <ComingSoon slug="rh-celebracoes" />)} />
+              <Route path="rh/documentos" element={g('rh.view', <ComingSoon slug="rh-documentos" />)} />
+              <Route path="financeiro/fluxo-de-caixa" element={g('fin.view', <ComingSoon slug="fin-fluxo" />)} />
+              <Route path="financeiro/contas" element={g('fin.view', <ComingSoon slug="fin-contas" />)} />
+              <Route path="financeiro/conciliacao" element={g('fin.view', <ComingSoon slug="fin-conciliacao" />)} />
+              <Route path="financeiro/centros-de-custo" element={g('fin.view', <ComingSoon slug="fin-centros" />)} />
+              <Route path="cadastros/parceiros" element={<Guard perm={['fin.view', 'est.view']}><ComingSoon slug="cad-parceiros" /></Guard>} />
               <Route path="rh/cadastros" element={g('rh.view', <RhCatalogs />)} />
               <Route path="rh/relatorios" element={g('rh.view', <RhReports />)} />
               <Route path="financeiro" element={g('fin.view', <FinOverview />)} />
