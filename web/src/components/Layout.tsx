@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import gsap from 'gsap';
 import {
   Download, RefreshCw, WifiOff, Activity, AlertTriangle, Bot, Cake, CalendarClock, FileCheck2, ListChecks, ShoppingCart, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
-  ChevronDown, ChevronLeft, Landmark, Layers, LineChart, Link2, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon,
+  ChevronDown, ChevronLeft, Landmark, Layers, LineChart, Link2, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon, FileSpreadsheet
 } from 'lucide-react';
 import { useAuth, useTheme } from '../lib/app';
 import { api } from '../lib/api';
@@ -45,8 +45,9 @@ const NAV: Group[] = [
     { to: '/estoque/cadastros', label: 'Categorias e unidades', icon: FolderTree },
     { to: '/estoque/relatorios', label: 'Relatórios', icon: FileBarChart },
   ] },
-  { label: 'Cadastros', icon: Users, perm: ['cad.view'], items: [
-    { to: '/cadastros/parceiros', label: 'Clientes e fornecedores', icon: HandCoins },
+  { label: 'Cadastros', icon: Users, perm: ['cad.view', 'cad.create', 'est.create'], items: [
+    { to: '/cadastros/parceiros', label: 'Clientes e fornecedores', icon: HandCoins, perm: ['cad.view'] },
+    { to: '/cadastros/importar', label: 'Importar planilhas', icon: FileSpreadsheet, perm: ['cad.create', 'est.create'] },
   ] },
   { label: 'Configurações', icon: Settings, perm: ['cfg.users', 'cfg.roles', 'cfg.audit', 'cfg.backup', 'cfg.settings'], items: [
     { to: '/config/empresa', label: 'Dados da empresa', icon: Building2, perm: ['cfg.settings'] },

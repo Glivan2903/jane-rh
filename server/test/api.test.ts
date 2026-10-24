@@ -1531,3 +1531,45 @@ test('Estoque: pedido de compra (rascunho, envio, recebimento parcial e total, l
   assert.equal((await con.get('/api/est/orders')).status, 200);
   assert.ok((await pool.query(`SELECT 1 FROM audit_logs WHERE entity='purchase_order' AND action='receber'`)).rowCount! >= 2);
 });
+
+test('importação de planilhas: prévia, criação, duplicados e permissões', async () => {
+  const admin = await login('admin@t.local'), con = await login('con@t.local');
+  const tag = String(Date.now()).slice(-6);
+  const cnpj = '11222333000181';
+  const rows = [
+    { name: `Imp Caneta ${tag}`, unit: 'un', category: `Imp Cat ${tag}`, barcode: `99${tag}01`, cost: '1.234,50', salePrice: 'R$ 2,00', minStock: '3', quantity: '10' },
+    { name: `Imp Caneta ${tag}`, unit: 'UN' },                              // repetida na planilha
+    { name: `Imp Sem Unidade ${tag}`, unit: 'XYZ' },                        // unidade inexistente
+    { name: '', unit: 'UN' },                                               // sem nome
+    { name: `Imp Custo ${tag}`, unit: 'UN', cost: 'abc' },                  // custo inválido
+  ];
+  const before = (await pool.query('SELECT count(*)::int n FROM products')).rows[0].n;
+  const pv = await admin.post('/api/import/produtos/preview', { rows });
+  assert.equal(pv.status, 200, JSON.stringify(pv.body));
+  assert.deepEqual([pv.body.ok, pv.body.duplicado, pv.body.erro], [1, 1, 3]);
+  assert.equal((await pool.query('SELECT count(*)::int n FROM products')).rows[0].n, before);   // prévia não grava
+  const cm = await admin.post('/api/import/produtos/commit', { rows });
+  assert.equal(cm.status, 200, JSON.stringify(cm.body)); assert.equal(cm.body.ok, 1);
+  const p = (await pool.query(`SELECT quantity, cost, sale_price FROM products WHERE name=$1`, [`Imp Caneta ${tag}`])).rows[0];
+  assert.deepEqual([Number(p.quantity), Number(p.cost), Number(p.sale_price)], [10, 1234.5, 2]);
+  assert.equal((await pool.query(`SELECT 1 FROM stock_movements m JOIN products p ON p.id=m.product_id WHERE p.name=$1 AND m.reason='Saldo inicial'`, [`Imp Caneta ${tag}`])).rowCount, 1);
+  const again = await admin.post('/api/import/produtos/commit', { rows: [rows[0]] });
+  assert.deepEqual([again.body.ok, again.body.duplicado], [0, 1]);                                  // reimportar não duplica
+
+  const pr = [
+    { name: `Imp Forn ${tag}`, kind: 'Fornecedor', document: cnpj, email: 'A@B.com' },
+    { name: `Imp Cli ${tag}`, kind: '', document: '123' },                 // documento inválido
+    { name: `Imp Tipo ${tag}`, kind: 'Parceiro' },                         // tipo inválido
+    { name: `Imp Ambos ${tag}`, kind: 'ambos', phone: '(11) 9' },
+  ];
+  const pc = await admin.post('/api/import/parceiros/commit', { rows: pr });
+  assert.equal(pc.status, 200, JSON.stringify(pc.body)); assert.equal(pc.body.ok, 2); assert.equal(pc.body.erro, 2);
+  const f = (await pool.query(`SELECT is_supplier, is_customer, email, legacy_supplier_id FROM parties WHERE document=$1`, [cnpj])).rows[0];
+  assert.deepEqual([f.is_supplier, f.is_customer, f.email], [true, false, 'a@b.com']); assert.ok(f.legacy_supplier_id);
+  assert.equal((await admin.post('/api/import/parceiros/commit', { rows: [pr[0]] })).body.duplicado, 1);
+
+  assert.equal((await admin.post('/api/import/outro/preview', { rows })).status, 404);
+  assert.equal((await admin.post('/api/import/produtos/preview', { rows: [] })).status, 422);
+  assert.equal((await con.post('/api/import/produtos/commit', { rows })).status, 403);
+  assert.ok((await pool.query(`SELECT 1 FROM audit_logs WHERE action='importar'`)).rowCount! >= 2);
+});

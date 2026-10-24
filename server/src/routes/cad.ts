@@ -64,7 +64,7 @@ cadRouter.get('/parties/:id', requireAuth('cad.view'), h(async (req, res) => {
 }));
 
 /** O estoque ainda referencia a tabela suppliers: manter uma linha espelho para cada parceiro fornecedor. */
-async function syncSupplierMirror(c: { query: typeof pool.query }, id: number, d: { name: string; isSupplier: boolean; active: boolean }) {
+export async function syncSupplierMirror(c: { query: typeof pool.query }, id: number, d: { name: string; isSupplier: boolean; active: boolean }) {
   const cur = (await c.query('SELECT legacy_supplier_id AS sid FROM parties WHERE id = $1', [id])).rows[0];
   if (d.isSupplier) {
     if (cur.sid) await c.query('UPDATE suppliers SET name = $2, active = $3 WHERE id = $1', [cur.sid, d.name, d.active]);

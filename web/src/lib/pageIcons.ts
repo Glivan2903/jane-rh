@@ -1,4 +1,4 @@
-import { Activity, Bot, Building2, Cake, CalendarClock, ListChecks, ShoppingCart, ClipboardCheck, DatabaseBackup, FileBarChart, FileCheck2, FolderTree, HandCoins, KeyRound, Landmark, Layers, LayoutDashboard, LineChart, Link2, Package, ScrollText, Settings,
+import { FileSpreadsheet, Activity, Bot, Building2, Cake, CalendarClock, ListChecks, ShoppingCart, ClipboardCheck, DatabaseBackup, FileBarChart, FileCheck2, FolderTree, HandCoins, KeyRound, Landmark, Layers, LayoutDashboard, LineChart, Link2, Package, ScrollText, Settings,
   ShieldCheck, Tags, TrendingDown, TrendingUp, UserCog, UserPlus, Users, Wallet, type LucideIcon } from 'lucide-react';
 
 /** Ícone de cada página (usado no destaque do topo). Vale o prefixo mais específico. */
@@ -7,7 +7,7 @@ const MAP: [string, LucideIcon][] = [
   ['/financeiro/receitas', TrendingUp], ['/financeiro/despesas', TrendingDown], ['/financeiro/fluxo-de-caixa', LineChart], ['/financeiro/contas', Landmark], ['/financeiro/conciliacao', Link2],
   ['/financeiro/categorias', Tags], ['/financeiro/centros-de-custo', Layers], ['/financeiro/relatorios', FileBarChart], ['/financeiro', Activity],
   ['/estoque/inventario', ListChecks], ['/estoque/lotes', CalendarClock], ['/estoque/pedidos', ShoppingCart], ['/estoque/movimentacoes', ClipboardCheck], ['/estoque/cadastros', FolderTree], ['/estoque/relatorios', FileBarChart], ['/estoque', Package],
-  ['/cadastros/parceiros', HandCoins], ['/assistente', Bot],
+  ['/cadastros/parceiros', HandCoins], ['/cadastros/importar', FileSpreadsheet], ['/assistente', Bot],
   ['/config/empresa', Building2], ['/config/usuarios', UserCog], ['/config/perfis', ShieldCheck], ['/config/auditoria', ScrollText], ['/config/backup', DatabaseBackup],
   ['/config/parametros', Settings], ['/config/assistente-ia', Bot], ['/perfil/senha', KeyRound],
 ].sort((a, b) => b[0].length - a[0].length) as [string, LucideIcon][];
