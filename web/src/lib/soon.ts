@@ -1,7 +1,7 @@
 /** Funcionalidades já desenvolvidas em homologação e ainda não liberadas neste ambiente. Cada uma abre uma tela "Em breve". */
 export type SoonIcon =
   | 'bot' | 'message' | 'chart' | 'wallet' | 'boxes' | 'users' | 'history' | 'shield' | 'cake' | 'award' | 'calendar' | 'party' | 'compass' | 'file' | 'list' | 'bell' | 'upload'
-  | 'alert' | 'line' | 'clock' | 'landmark' | 'scale' | 'transfer' | 'tag' | 'link' | 'check' | 'plus' | 'undo' | 'layers' | 'filter' | 'report' | 'id' | 'merge';
+  | 'alert' | 'line' | 'clock' | 'landmark' | 'scale' | 'transfer' | 'tag' | 'link' | 'check' | 'plus' | 'undo' | 'layers' | 'filter' | 'report' | 'id' | 'merge' | 'cart' | 'checklist' | 'barcode' | 'package' | 'receipt';
 
 export interface SoonItem { icon: SoonIcon; title: string; text: string }
 export interface SoonFeature { slug: string; label: string; icon: SoonIcon; headline: string; /* vazio: sem linha de destaque */ description: string; items: SoonItem[] }
@@ -94,6 +94,41 @@ export const SOON: Record<string, SoonFeature> = {
       { icon: 'tag', title: 'Cliente, fornecedor ou ambos', text: 'Marque o tipo e filtre a lista por ele.' },
       { icon: 'link', title: 'Escolha no lançamento', text: 'Selecione o cliente ou fornecedor direto ao registrar receitas e despesas.' },
       { icon: 'report', title: 'Movimento por cadastro', text: 'Relatório do que foi comprado e vendido com cada cliente e fornecedor.' },
+    ],
+  },
+  'est-pedidos': {
+    slug: 'est-pedidos', label: 'Pedidos de compra', icon: 'cart', headline: 'Do pedido ao estoque e ao contas a pagar',
+    description: 'Faça o pedido ao fornecedor, receba a mercadoria no estoque e gere a conta a pagar no financeiro, tudo no mesmo lugar.',
+    items: [
+      { icon: 'cart', title: 'Pedido com vários produtos', text: 'Monte o pedido com os produtos, quantidades e custos, salve como rascunho e envie quando estiver pronto.' },
+      { icon: 'package', title: 'Recebimento parcial ou total', text: 'Registre cada entrega que chega. Cada recebimento já dá entrada no estoque.' },
+      { icon: 'clock', title: 'Lote e validade no recebimento', text: 'Para produtos controlados por lote, informe o lote e a validade na hora de receber.' },
+      { icon: 'receipt', title: 'Conta a pagar automática', text: 'Gere a conta a pagar com o valor recebido, a nota fiscal, o vencimento e a categoria.' },
+      { icon: 'merge', title: 'Fornecedor do cadastro único', text: 'Use os fornecedores já cadastrados, os mesmos do financeiro e do estoque.' },
+      { icon: 'chart', title: 'Acompanhamento', text: 'Veja quanto de cada pedido já chegou e quais pedidos estão em aberto.' },
+    ],
+  },
+  'est-inventario': {
+    slug: 'est-inventario', label: 'Inventário', icon: 'checklist', headline: 'Conte o estoque e ajuste as diferenças de uma vez',
+    description: 'Compare o estoque físico com o do sistema, veja o que não bate e corrija tudo ao finalizar a contagem.',
+    items: [
+      { icon: 'checklist', title: 'Folha de contagem', text: 'Digite o que contou em cada item. O sistema salva sozinho e mostra o progresso.' },
+      { icon: 'barcode', title: 'Leitor de código de barras', text: 'Leia o código do produto e vá direto ao campo de contagem dele.' },
+      { icon: 'filter', title: 'Contagem por categoria', text: 'Conte o estoque inteiro ou apenas uma categoria de cada vez.' },
+      { icon: 'tag', title: 'Contagem por lote', text: 'Produtos com controle por lote são contados lote a lote.' },
+      { icon: 'alert', title: 'Diferenças em destaque', text: 'Veja o que sobrou e o que faltou antes de confirmar qualquer ajuste.' },
+      { icon: 'report', title: 'Ajuste e relatório', text: 'Ao finalizar, cada diferença vira um ajuste registrado, e você exporta o resultado em CSV.' },
+    ],
+  },
+  'est-lotes': {
+    slug: 'est-lotes', label: 'Lotes e validades', icon: 'calendar', headline: 'Saiba o que vence antes de perder',
+    description: 'Controle o estoque por lote e validade e acompanhe o que está vencido ou perto de vencer.',
+    items: [
+      { icon: 'tag', title: 'Controle por lote', text: 'Ative por produto. Cada entrada informa o lote e a validade.' },
+      { icon: 'undo', title: 'Sai primeiro o que vence antes', text: 'Nas saídas, o sistema usa o lote de vencimento mais próximo, ou o lote que você escolher.' },
+      { icon: 'alert', title: 'Painel de vencimentos', text: 'Lista de lotes vencidos e a vencer, com filtros por situação e produto.' },
+      { icon: 'bell', title: 'Avisos no sino', text: 'Alerta antes de vencer, com a antecedência que você definir nos parâmetros.' },
+      { icon: 'scale', title: 'Ajuste por lote', text: 'Corrija o saldo de um lote específico sem mexer nos demais.' },
     ],
   },
 };

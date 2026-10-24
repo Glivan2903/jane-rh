@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeftRight, Award, BarChart3, Bell, Boxes, Bot, Cake, CalendarDays, CalendarClock, CheckCheck, Compass, FileBarChart, FileText, Filter, FilePlus2, Fingerprint, GitMerge, History, Hourglass,
+import { AlertTriangle, ArrowLeftRight, Award, BarChart3, Bell, Boxes, Bot, PackageCheck, Receipt, ScanBarcode, ShoppingCart, Cake, CalendarDays, CalendarClock, CheckCheck, Compass, FileBarChart, FileText, Filter, FilePlus2, Fingerprint, GitMerge, History, Hourglass,
   Landmark, Layers, LineChart, Link2, ListChecks, MessageSquare, PartyPopper, Scale, ShieldCheck, Tags, Undo2, Upload, Users, Wallet, UserCog, type LucideIcon } from 'lucide-react';
 import { ErrorBox } from '../components/ui';
 import { SOON, type SoonIcon } from '../lib/soon';
@@ -7,6 +7,7 @@ const ICONS: Record<SoonIcon, LucideIcon> = {
   bot: Bot, message: MessageSquare, chart: BarChart3, wallet: Wallet, boxes: Boxes, users: Users, history: History, shield: ShieldCheck, cake: Cake, award: Award, calendar: CalendarDays, party: PartyPopper,
   compass: Compass, file: FileText, list: ListChecks, bell: Bell, upload: Upload, alert: AlertTriangle, line: LineChart, clock: CalendarClock, landmark: Landmark, scale: Scale, transfer: ArrowLeftRight,
   tag: Tags, link: Link2, check: CheckCheck, plus: FilePlus2, undo: Undo2, layers: Layers, filter: Filter, report: FileBarChart, id: Fingerprint, merge: GitMerge,
+  cart: ShoppingCart, checklist: ListChecks, barcode: ScanBarcode, package: PackageCheck, receipt: Receipt,
 };
 
 /** Tela de funcionalidade ainda não liberada neste ambiente. Ocupa a área toda e não consulta nada no servidor. */

@@ -67,6 +67,9 @@ export default function App() {
               <Route path="financeiro/contas" element={g('fin.view', <ComingSoon slug="fin-contas" />)} />
               <Route path="financeiro/conciliacao" element={g('fin.view', <ComingSoon slug="fin-conciliacao" />)} />
               <Route path="financeiro/centros-de-custo" element={g('fin.view', <ComingSoon slug="fin-centros" />)} />
+              <Route path="estoque/pedidos" element={g('est.view', <ComingSoon slug="est-pedidos" />)} />
+              <Route path="estoque/inventario" element={g('est.view', <ComingSoon slug="est-inventario" />)} />
+              <Route path="estoque/lotes" element={g('est.view', <ComingSoon slug="est-lotes" />)} />
               <Route path="cadastros/parceiros" element={<Guard perm={['fin.view', 'est.view']}><ComingSoon slug="cad-parceiros" /></Guard>} />
               <Route path="rh/cadastros" element={g('rh.view', <RhCatalogs />)} />
               <Route path="rh/relatorios" element={g('rh.view', <RhReports />)} />
