@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import {
-  Activity, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
+  Activity, AlertTriangle, Bot, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
   ChevronDown, ChevronLeft, Landmark, Layers, LineChart, Link2, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon,
 } from 'lucide-react';
 import { useAuth, useTheme } from '../lib/app';
@@ -11,10 +11,11 @@ import { Brand } from './brand';
 import { useCompany } from '../lib/company';
 
 interface Item { to: string; label: string; icon: LucideIcon; perm?: string[]; end?: boolean }
-interface Group { label: string; icon: LucideIcon; perm: string[]; items: Item[] }
+interface Group { label: string; icon: LucideIcon; perm: string[]; ai?: boolean; items: Item[] }
 
 const NAV: Group[] = [
   { label: 'Geral', icon: LayoutDashboard, perm: ['dash.view'], items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
+  { label: 'Assistente', icon: Bot, perm: [], ai: true, items: [{ to: '/assistente', label: 'Assistente de IA', icon: Sparkles }] },
   { label: 'RH / Pessoal', icon: Users, perm: ['rh.view'], items: [
     { to: '/rh/funcionarios', label: 'Funcionários', icon: Users },
     { to: '/rh/cadastros', label: 'Cargos e departamentos', icon: Building2 },
@@ -45,6 +46,7 @@ const NAV: Group[] = [
     { to: '/config/usuarios', label: 'Usuários', icon: UserCog, perm: ['cfg.users'] },
     { to: '/config/perfis', label: 'Perfis e permissões', icon: ShieldCheck, perm: ['cfg.roles'] },
     { to: '/config/auditoria', label: 'Auditoria', icon: ScrollText, perm: ['cfg.audit'] },
+    { to: '/config/assistente-ia', label: 'Assistente de IA', icon: Bot, perm: ['cfg.users'] },
     { to: '/config/backup', label: 'Backup', icon: DatabaseBackup, perm: ['cfg.backup'] },
     { to: '/config/parametros', label: 'Parâmetros', icon: Settings, perm: ['cfg.settings'] },
   ] },
@@ -101,7 +103,7 @@ export function Layout() {
     gsap.from(sbRef.current!.querySelectorAll('[data-nav]'), { x: -14, opacity: 0, duration: 0.4, stagger: 0.025, ease: 'power2.out', delay: 0.1, clearProps: 'all' });
   }, []);
 
-  const groups = NAV.filter((g) => can(...g.perm));
+  const groups = NAV.filter((g) => (g.ai ? !!me?.ai?.enabled && (me.ai.finance || me.ai.stock || me.ai.hr) : can(...g.perm)));
   // Módulos expansíveis: abre o da rota atual; o usuário pode abrir/fechar vários ao mesmo tempo.
   const groupOfPath = () => groups.find((g) => g.items.some((i) => (i.end ? loc.pathname === i.to : loc.pathname.startsWith(i.to))))?.label ?? null;
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());

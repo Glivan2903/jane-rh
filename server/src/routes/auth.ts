@@ -8,6 +8,7 @@ import { audit } from '../audit.js';
 import { COOKIE, PASSWORD_RULE, createSession, fetchSessionUser, requireAuth, sha256, strongPassword } from '../auth.js';
 import { HttpError, h, parse } from '../util.js';
 import { appUrl, sendMail } from '../services/mail.js';
+import { accessFor } from '../services/ai.js';
 
 export const authRouter = Router();
 
@@ -20,9 +21,9 @@ const DUMMY_HASH = bcrypt.hashSync('dummy-password-for-timing', 10);
 const MAX_ATTEMPTS = 5;
 const LOCK_MIN = 15;
 
-const me = (req: Request) => {
+const me = async (req: Request) => {
   const u = req.user!;
-  return { id: u.id, name: u.name, email: u.email, role: u.roleName, permissions: [...u.perms], mustChangePassword: u.mustChangePassword };
+  return { id: u.id, name: u.name, email: u.email, role: u.roleName, permissions: [...u.perms], mustChangePassword: u.mustChangePassword, ai: await accessFor(u) };
 };
 
 authRouter.post('/login', loginLimiter, h(async (req, res) => {
@@ -50,7 +51,7 @@ authRouter.post('/login', loginLimiter, h(async (req, res) => {
   const au = (await fetchSessionUser(token))!;
   req.user = au;
   await audit(req, { action: 'login', module: 'auth', entity: 'user', entityId: au.id, summary: `Login de ${au.name}` });
-  res.json(me(req));
+  res.json(await me(req));
 }));
 
 // Primeiro acesso: só existe enquanto não há nenhum usuário. Depois disso as rotas respondem 404/409.
@@ -91,7 +92,7 @@ authRouter.post('/setup', setupLimiter, h(async (req, res) => {
   const token = await createSession(userId, req, res);
   req.user = (await fetchSessionUser(token))!;
   await audit(req, { action: 'criar', module: 'config', entity: 'user', entityId: userId, summary: `Administrador inicial criado: ${body.email}` });
-  res.json(me(req));
+  res.json(await me(req));
 }));
 
 authRouter.post('/logout', h(async (req, res) => {
@@ -102,7 +103,7 @@ authRouter.post('/logout', h(async (req, res) => {
   res.json({ ok: true });
 }));
 
-authRouter.get('/me', requireAuth(), h(async (req, res) => { res.json(me(req)); }));
+authRouter.get('/me', requireAuth(), h(async (req, res) => { res.json(await me(req)); }));
 
 authRouter.post('/change-password', requireAuth(), rateLimit({ windowMs: 15 * 60_000, limit: 10, message: { error: 'Muitas tentativas. Aguarde.' } }), h(async (req, res) => {
   const body = parse(z.object({

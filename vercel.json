@@ -3,10 +3,19 @@
   "buildCommand": "npm --prefix web run build",
   "outputDirectory": "web/dist",
   "functions": {
-    "api/index.ts": { "maxDuration": 30, "includeFiles": "server/migrations/**" }
+    "api/index.ts": {
+      "maxDuration": 60,
+      "includeFiles": "server/migrations/**"
+    }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ]
 }

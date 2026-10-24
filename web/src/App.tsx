@@ -28,6 +28,8 @@ const Movements = lazy(() => import('./pages/est/Movements'));
 const EstCatalogs = lazy(() => import('./pages/est/Misc').then((m) => ({ default: m.EstCatalogs })));
 const EstReports = lazy(() => import('./pages/est/Misc').then((m) => ({ default: m.EstReports })));
 const Parties = lazy(() => import('./pages/cad/Parties'));
+const Assistant = lazy(() => import('./pages/ai/Assistant'));
+const AiAccess = lazy(() => import('./pages/cfg/AiAccess'));
 const Users = lazy(() => import('./pages/cfg/Users'));
 const Roles = lazy(() => import('./pages/cfg/Roles'));
 const Audit = lazy(() => import('./pages/cfg/Audit'));
@@ -86,6 +88,8 @@ export default function App() {
               <Route path="estoque/movimentacoes" element={g('est.view', <Movements />)} />
               <Route path="estoque/cadastros" element={g('est.view', <EstCatalogs />)} />
               <Route path="estoque/relatorios" element={g('est.view', <EstReports />)} />
+              <Route path="assistente" element={<Assistant />} />
+              <Route path="config/assistente-ia" element={g('cfg.users', <AiAccess />)} />
               <Route path="cadastros/parceiros" element={g('cad.view', <Parties />)} />
               <Route path="config/empresa" element={g('cfg.settings', <CompanyPage />)} />
               <Route path="config/usuarios" element={g('cfg.users', <Users />)} />
