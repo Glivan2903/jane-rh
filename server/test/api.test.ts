@@ -1108,3 +1108,39 @@ test('IA: usuários do sistema (só administrador), próximos aniversariantes, o
     const qts = pr.produtos.map((p: any) => p.quantidade); assert.deepEqual(qts, [...qts].sort((a: number, b: number) => b - a));
   } finally { setGeminiImpl(null); }
 });
+
+test('Gemini: modelo sem cota é pulado na hora e lembrado (sem esperas); reserva responde; leitura do streaming com CRLF', async () => {
+  const { generate, setGeminiImpl, resetGeminiCooldown } = await import('../src/services/gemini.js');
+  setGeminiImpl(null); resetGeminiCooldown();
+  process.env.GEMINI_MODEL = 'm-principal'; process.env.GEMINI_FALLBACK_MODELS = 'm-reserva,m-terceiro';
+  const realFetch = globalThis.fetch; const calls: string[] = [];
+  const sse = (text: string) => new Response(new ReadableStream({ start(c) {
+    const enc = new TextEncoder();
+    c.enqueue(enc.encode(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}\r\n\r\n`));            // separador CRLF como a API pode enviar
+    c.enqueue(enc.encode(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: '' }] } }], usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 2 } })}\r\n\r\n`)); c.close();
+  } }), { status: 200 });
+  globalThis.fetch = (async (url: any) => {
+    const m = /models\/([^:]+):/.exec(String(url))![1]; calls.push(m);
+    if (m === 'm-principal') return new Response(JSON.stringify({ error: { details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }, { retryDelay: '45166s' }] } }), { status: 429 });
+    return sse(`resposta de ${m}`);
+  }) as typeof fetch;
+  try {
+    const run = async () => { let text = ''; let usage = { in: 0, out: 0 }; let model = ''; for await (const e of generate({ system: 's', contents: [{ role: 'user', parts: [{ text: 'oi' }] }] })) { if (e.type === 'text') text += e.delta; else { usage = e.usage; model = e.model; } } return { text, usage, model }; };
+    const t0 = Date.now();
+    const a = await run();
+    assert.equal(a.text, 'resposta de m-reserva'); assert.equal(a.model, 'm-reserva'); assert.deepEqual(a.usage, { in: 5, out: 2 });
+    assert.deepEqual(calls, ['m-principal', 'm-reserva']);
+    assert.ok(Date.now() - t0 < 500, 'não pode esperar entre os modelos');
+    calls.length = 0;
+    await run();
+    assert.deepEqual(calls, ['m-reserva']);                       // o principal ficou em pausa: nem é tentado
+    // erro de requisição (400) não troca de modelo nem repete
+    resetGeminiCooldown(); calls.length = 0;
+    globalThis.fetch = (async (url: any) => { calls.push(String(url)); return new Response('{"error":{"message":"bad"}}', { status: 400 }); }) as typeof fetch;
+    await assert.rejects(run(), /Erro do modelo/); assert.equal(calls.length, 1);
+    // todos indisponíveis: duas voltas e erro claro
+    resetGeminiCooldown(); calls.length = 0;
+    globalThis.fetch = (async (url: any) => { calls.push(String(url)); return new Response('x', { status: 503 }); }) as typeof fetch;
+    await assert.rejects(run(), /indisponível/); assert.equal(calls.length, 6);
+  } finally { globalThis.fetch = realFetch; resetGeminiCooldown(); delete process.env.GEMINI_MODEL; delete process.env.GEMINI_FALLBACK_MODELS; }
+});

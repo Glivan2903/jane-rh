@@ -32,12 +32,31 @@ let override: GenImpl | null = null;
 export const setGeminiImpl = (fn: GenImpl | null) => { override = fn; };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/*
+ * Disjuntor por modelo: um modelo sem cota (429), desativado (404) ou fora do ar (5xx) sai da fila por um tempo,
+ * em vez de ser tentado, esperado e repetido a cada pergunta (cada tentativa inútil custa segundos ao usuário).
+ */
+const cooldown = new Map<string, number>();
+export const resetGeminiCooldown = () => cooldown.clear();
+const COOL_OUTAGE_MS = 20_000;       // 5xx, timeout ou queda de rede: tenta de novo em 20 s
+const COOL_MAX_MS = 15 * 60_000;     // cota diária esgotada: revê a cada 15 min (o limite real pode voltar antes do aviso do Google)
+function coolDownFor(status: number, body: string): number {
+  if (status === 404) return 60 * 60_000;                                 // modelo descontinuado
+  if (status === 429) {
+    const delay = /"retryDelay":\s*"(\d+(?:\.\d+)?)s"/.exec(body)?.[1];
+    const perDay = /PerDay/i.test(body);
+    return Math.min(COOL_MAX_MS, Math.max(5_000, delay ? Number(delay) * 1000 : perDay ? COOL_MAX_MS : 10_000));
+  }
+  return COOL_OUTAGE_MS;
+}
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+const available = (m: string) => (cooldown.get(m) ?? 0) <= Date.now();
 
 async function openStream(model: string, body: string, signal?: AbortSignal): Promise<Response> {
   // Se o modelo não começar a responder em poucos segundos (sobrecarga), desiste e tenta o próximo; o fluxo todo tem um teto.
   const first = new AbortController();
-  const timer = setTimeout(() => first.abort(), Number(process.env.GEMINI_FIRST_BYTE_MS ?? 15000));
+  const timer = setTimeout(() => first.abort(), Number(process.env.GEMINI_FIRST_BYTE_MS ?? 10000));
   const signals = [first.signal, AbortSignal.timeout(Number(process.env.GEMINI_TIMEOUT_MS ?? 60000)), ...(signal ? [signal] : [])];
   try {
     return await fetch(`${BASE}/${model}:streamGenerateContent?alt=sse`, {
@@ -55,24 +74,27 @@ async function* realGenerate(req: GenRequest): AsyncGenerator<GenEvent> {
     ...(req.tools?.length ? { tools: [{ functionDeclarations: req.tools }] } : {}),
     generationConfig: { temperature: 0.2 },
   });
-  // Tenta cada modelo (com uma repetição) enquanto a falha for de capacidade/indisponibilidade; erros de requisição não repetem.
+  // Percorre os modelos disponíveis sem esperar entre eles; se todos falharem, uma segunda volta depois de uma pausa curta.
   let res: Response | null = null; let last = '';
-  outer: for (const model of geminiModels()) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+  const chain = geminiModels(); const live = chain.filter(available);
+  const order = live.length ? live : chain;                              // todos em pausa: tenta todos mesmo assim
+  outer: for (let round = 0; round < 2; round++) {
+    for (const model of order) {
       try {
         const r = await openStream(model, body, req.signal);
-        if (r.ok) { res = r; (res as Response & { _model?: string })._model = model; break outer; }
+        if (r.ok) { res = r; (res as Response & { _model?: string })._model = model; cooldown.delete(model); break outer; }
         const txt = await r.text().catch(() => '');
-        last = `${r.status} ${txt.slice(0, 200)}`;
-        if (r.status === 404) break;                         // modelo desativado: vai para o próximo
-        if (!RETRYABLE.has(r.status)) throw new GeminiError(`Erro do modelo (${r.status}).`, r.status === 400 ? 502 : 502);
+        last = `${model}: ${r.status} ${txt.slice(0, 160)}`;
+        if (r.status !== 404 && !RETRYABLE.has(r.status)) throw new GeminiError(`Erro do modelo (${r.status}).`, 502);   // erro de requisição: não adianta repetir
+        cooldown.set(model, Date.now() + coolDownFor(r.status, txt));
       } catch (e) {
         if (e instanceof GeminiError) throw e;
         if (req.signal?.aborted) throw e;
-        last = (e as Error).message;
+        last = `${model}: ${(e as Error).message}`;
+        cooldown.set(model, Date.now() + COOL_OUTAGE_MS);
       }
-      await sleep(800 * (attempt + 1));
     }
+    if (round === 0) await sleep(700);
   }
   if (!res?.body) throw new GeminiError(`O modelo está indisponível no momento. Tente novamente em instantes. (${last.slice(0, 120)})`, 503);
 
