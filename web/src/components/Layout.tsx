@@ -6,6 +6,8 @@ import {
   ChevronDown, ChevronLeft, Landmark, Layers, LineChart, Link2, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon, FileSpreadsheet
 } from 'lucide-react';
 import { useAuth, useTheme } from '../lib/app';
+import { shouldShowNews } from '../lib/news';
+import { NewsModal } from './NewsModal';
 import { api } from '../lib/api';
 import { Brand } from './brand';
 import { Modal } from './ui';
@@ -94,6 +96,8 @@ export function Layout() {
   const company = useCompany();
   const mainRef = useRef<HTMLElement>(null);
   const pwa = usePwa(); const [iosHelp, setIosHelp] = useState(false);
+  const [news, setNews] = useState(false);
+  useEffect(() => { if (me && shouldShowNews(me.id)) setNews(true); }, [me]);
   const sbRef = useRef<HTMLElement>(null);
 
   useEffect(() => { setOpen(false); setMenu(null); }, [loc.pathname]);
@@ -207,6 +211,7 @@ export function Layout() {
               {menu === 'user' && (
                 <div className="absolute right-0 mt-2 w-60 rounded-xl border bg-card p-1.5 shadow-xl">
                   <div className="border-b px-3 py-2"><p className="truncate text-sm font-semibold">{me!.name}</p><p className="truncate text-xs text-muted-foreground">{me!.email}</p></div>
+                  <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-muted" onClick={() => { setMenu(null); setNews(true); }}><Sparkles className="h-4 w-4" />Novidades</button>
                   <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-muted" onClick={() => nav('/perfil/senha')}><KeyRound className="h-4 w-4" />Alterar senha</button>
                   {!pwa.installed && (pwa.canInstall || isIos()) && <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-muted" onClick={async () => { setMenu(null); if (pwa.canInstall) await promptInstall(); else setIosHelp(true); }}><Download className="h-4 w-4" />Instalar aplicativo</button>}
                   <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-danger hover:bg-muted" onClick={async () => { await logout(); nav('/login'); }}><LogOut className="h-4 w-4" />Sair</button>
@@ -221,6 +226,7 @@ export function Layout() {
             <RefreshCw className="h-4 w-4 shrink-0 text-primary" /><span className="flex-1">Há uma nova versão do Gentis.</span>
             <button className="btn-primary btn-sm" onClick={applyUpdate}>Atualizar</button>
           </div>)}
+        {news && me && <NewsModal userId={me.id} onClose={() => setNews(false)} />}
         {iosHelp && (
           <Modal title="Instalar o Gentis no iPhone ou iPad" size="sm" onClose={() => setIosHelp(false)} footer={<button className="btn-primary" onClick={() => setIosHelp(false)}>Entendi</button>}>
             <ol className="list-decimal space-y-2 pl-5 text-sm"><li>Abra o Gentis no <b>Safari</b>.</li><li>Toque no botão <b>Compartilhar</b> (o quadrado com a seta para cima).</li><li>Escolha <b>Adicionar à Tela de Início</b> e confirme.</li></ol>

@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import { api, setUnauthorizedHandler, ApiError } from './api';
 import { Modal } from '../components/ui';
+import { markNewsForLogin } from './news';
 
 // ---------- Auth ----------
 export interface Me { id: string; name: string; email: string; role: string; permissions: string[]; mustChangePassword: boolean; ai?: { enabled: boolean; finance: boolean; stock: boolean; hr: boolean; salary: boolean } }
@@ -26,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (!netError) return; const t = setInterval(refresh, 5000); return () => clearInterval(t); }, [netError, refresh]);
   const value = useMemo<AuthCtx>(() => ({
     me, loading, netError, refresh,
-    login: async (login, password) => { const u = await api.post<Me>('/auth/login', { login, password }); setMe(u); return u; },
+    login: async (login, password) => { const u = await api.post<Me>('/auth/login', { login, password }); markNewsForLogin(); setMe(u); return u; },
     setup: async (d) => { const u = await api.post<Me>('/auth/setup', d); setMe(u); return u; },
     logout: async () => { try { await api.post('/auth/logout'); } finally { setMe(null); } },
     can: (...p) => !!me && p.some((x) => me.permissions.includes(x)),
