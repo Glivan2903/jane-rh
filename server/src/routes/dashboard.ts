@@ -38,11 +38,6 @@ dashboardRouter.get('/', requireAuth('dash.view'), h(async (req, res) => {
   if (hasPerm(req, 'rh.view')) jobs.push(hrSummary(period.from, period.to).then((v) => { out.rh = v; }));
   if (hasPerm(req, 'fin.view')) jobs.push(financeSummary(period.from, period.to).then((v) => { out.financeiro = v; }));
   if (hasPerm(req, 'est.view')) jobs.push(stockSummary(period.from, period.to).then((v) => { out.estoque = v; }));
-  const mods = ['auth-none', ...(hasPerm(req, 'rh.view') ? ['rh'] : []), ...(hasPerm(req, 'fin.view') ? ['financeiro'] : []), ...(hasPerm(req, 'est.view') ? ['estoque'] : []), ...(hasPerm(req, 'cfg.audit') ? ['config'] : [])];
-  jobs.push(pool.query(
-    `SELECT id, at, user_name AS "userName", module, action, summary FROM audit_logs
-      WHERE module = ANY($1) AND result='sucesso' AND action NOT IN ('exportar','login','logout','download_backup','verificar_backup') ORDER BY id DESC LIMIT 15`, [mods])
-    .then((r) => { out.atividades = r.rows; }));
   await Promise.all(jobs);
   res.json(out);
 }));
