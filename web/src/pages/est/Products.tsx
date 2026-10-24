@@ -12,7 +12,7 @@ import { brl, num } from '../../lib/format';
 
 export interface Product {
   id: string; code: string; name: string; description: string | null; categoryId: number | null; category: string | null; unitId: number; unit: string; barcode: string | null;
-  cost: string; salePrice: string | null; quantity: string; minStock: string; totalValue: string; location: string | null; supplierId: number | null; supplier: string | null; active: boolean; stockStatus: string;
+  cost: string; salePrice: string | null; quantity: string; minStock: string; totalValue: string; location: string | null; supplierId: number | null; supplier: string | null; active: boolean; stockStatus: string; tracksBatches: boolean;
 }
 const ST: Record<string, { tone: Tone; label: string }> = { normal: { tone: 'success', label: 'Normal' }, baixo: { tone: 'warning', label: 'Estoque baixo' }, sem_estoque: { tone: 'danger', label: 'Sem estoque' }, inativo: { tone: 'neutral', label: 'Inativo' } };
 export const StockBadge = ({ s }: { s: string }) => <Badge tone={ST[s].tone}>{ST[s].label}</Badge>;
@@ -26,6 +26,7 @@ function ProductForm({ row, onClose, onSaved }: { row: Product | null; onClose: 
     name: row?.name ?? '', description: row?.description ?? '', categoryId: String(row?.categoryId ?? ''), unitId: String(row?.unitId ?? ''), barcode: row?.barcode ?? '',
     cost: row ? String(Number(row.cost)) : '', salePrice: row?.salePrice ?? '', initialQuantity: '', minStock: row ? String(Number(row.minStock)) : '0',
     location: row?.location ?? '', supplierId: String(row?.supplierId ?? ''), active: row?.active ?? true,
+    tracksBatches: row?.tracksBatches ?? false, initialBatchCode: '', initialExpiresAt: '',
   });
   return (
     <Modal title={row ? `Editar produto ${row.code}` : 'Novo produto'} size="lg" onClose={onClose}
@@ -48,8 +49,14 @@ function ProductForm({ row, onClose, onSaved }: { row: Product | null; onClose: 
         {!row && <FInput f={f} name="cost" label="Custo unitário de aquisição (R$)" type="number" step="0.0001" min="0" />}
         <FInput f={f} name="salePrice" label="Preço de venda (R$)" type="number" step="0.01" min="0" />
         {!row && can('est.move') && <FInput f={f} name="initialQuantity" label="Quantidade inicial" type="number" step="0.001" min="0" hint="Gera uma movimentação de saldo inicial." />}
+        {!row && can('est.move') && f.v.tracksBatches && Number(f.v.initialQuantity) > 0 && <>
+          <FInput f={f} name="initialBatchCode" label="Lote do saldo inicial" hint="Se ficar em branco, usa SALDO-INICIAL." />
+          <FInput f={f} name="initialExpiresAt" label="Validade do lote (opcional)" type="date" />
+        </>}
         <FInput f={f} name="minStock" label="Estoque mínimo" type="number" step="0.001" min="0" />
         <FInput f={f} name="location" label="Localização física" />
+        <div className="sm:col-span-2 rounded-lg border p-3"><FCheck f={f} name="tracksBatches" label="Controlar por lote e validade" />
+          <p className="mt-1 text-xs text-muted-foreground">{row ? (row.tracksBatches ? 'Para desligar, o saldo do produto precisa estar zerado.' : 'Ao ligar, o saldo atual passa a ser o lote SEM-LOTE (o saldo não muda).') : 'Cada entrada informa o lote e a validade; a saída usa primeiro o lote que vence antes.'}</p></div>
         {row && can('est.inactivate') && <div className="flex items-end pb-2"><FCheck f={f} name="active" label="Produto ativo" /></div>}
         <SubmitButton busy={f.busy} className="hidden">Salvar</SubmitButton>
       </form>
@@ -73,7 +80,7 @@ export default function Products() {
 
   const cols: Col<Product>[] = [
     { key: 'code', label: 'Código', sort: 'code', render: (r) => <span className="font-mono text-xs">{r.code}</span> },
-    { key: 'name', label: 'Nome', sort: 'name', render: (r) => <div><Link to={`/estoque/movimentacoes?productId=${r.id}`} className="font-semibold hover:text-primary">{r.name}</Link>{r.barcode && <div className="text-xs text-muted-foreground">{r.barcode}</div>}</div> },
+    { key: 'name', label: 'Nome', sort: 'name', render: (r) => <div><Link to={`/estoque/movimentacoes?productId=${r.id}`} className="font-semibold hover:text-primary">{r.name}</Link>{r.tracksBatches && <span className="ml-2 align-middle"><Badge tone="info">Lote</Badge></span>}{r.barcode && <div className="text-xs text-muted-foreground">{r.barcode}</div>}</div> },
     { key: 'category', label: 'Categoria', sort: 'category', render: (r) => r.category ?? '—' },
     { key: 'quantity', label: 'Disponível', sort: 'quantity', className: 'text-right tabular-nums', render: (r) => `${num(r.quantity)} ${r.unit}` },
     { key: 'min', label: 'Mínimo', className: 'text-right tabular-nums', render: (r) => num(r.minStock) },

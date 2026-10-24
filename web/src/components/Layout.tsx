@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import {
-  Activity, AlertTriangle, Bot, Cake, FileCheck2, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
+  Activity, AlertTriangle, Bot, Cake, CalendarClock, FileCheck2, ListChecks, ShoppingCart, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
   ChevronDown, ChevronLeft, Landmark, Layers, LineChart, Link2, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon,
 } from 'lucide-react';
 import { useAuth, useTheme } from '../lib/app';
@@ -37,6 +37,9 @@ const NAV: Group[] = [
   { label: 'Estoque', icon: Boxes, perm: ['est.view'], items: [
     { to: '/estoque', label: 'Produtos', icon: Package, end: true },
     { to: '/estoque/movimentacoes', label: 'Movimentações', icon: ClipboardCheck },
+    { to: '/estoque/pedidos', label: 'Pedidos de compra', icon: ShoppingCart },
+    { to: '/estoque/inventario', label: 'Inventário', icon: ListChecks },
+    { to: '/estoque/lotes', label: 'Lotes e validades', icon: CalendarClock },
     { to: '/estoque/cadastros', label: 'Categorias e unidades', icon: FolderTree },
     { to: '/estoque/relatorios', label: 'Relatórios', icon: FileBarChart },
   ] },

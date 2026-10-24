@@ -26,6 +26,10 @@ const CostCenters = lazy(() => import('./pages/fin/CostCenters'));
 const Categories = lazy(() => import('./pages/fin/Categories'));
 const FinReports = lazy(() => import('./pages/fin/Reports'));
 const Products = lazy(() => import('./pages/est/Products'));
+const Orders = lazy(() => import('./pages/est/Orders'));
+const Inventory = lazy(() => import('./pages/est/Inventory'));
+const InventoryDetail = lazy(() => import('./pages/est/InventoryDetail'));
+const Batches = lazy(() => import('./pages/est/Batches'));
 const Movements = lazy(() => import('./pages/est/Movements'));
 const EstCatalogs = lazy(() => import('./pages/est/Misc').then((m) => ({ default: m.EstCatalogs })));
 const EstReports = lazy(() => import('./pages/est/Misc').then((m) => ({ default: m.EstReports })));
@@ -90,6 +94,10 @@ export default function App() {
               <Route path="estoque/saida" element={<Navigate to="/estoque" replace />} />
               <Route path="estoque/ajuste" element={<Navigate to="/estoque" replace />} />
               <Route path="estoque/movimentacoes" element={g('est.view', <Movements />)} />
+              <Route path="estoque/pedidos" element={g('est.view', <Orders />)} />
+              <Route path="estoque/inventario" element={g('est.view', <Inventory />)} />
+              <Route path="estoque/inventario/:id" element={g('est.view', <InventoryDetail />)} />
+              <Route path="estoque/lotes" element={g('est.view', <Batches />)} />
               <Route path="estoque/cadastros" element={g('est.view', <EstCatalogs />)} />
               <Route path="estoque/relatorios" element={g('est.view', <EstReports />)} />
               <Route path="assistente" element={<Assistant />} />
