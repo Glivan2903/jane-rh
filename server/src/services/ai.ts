@@ -225,7 +225,7 @@ const TOOLS: Tool[] = [
            FROM employees e LEFT JOIN departments d ON d.id = e.department_id
            CROSS JOIN LATERAL (SELECT extract(year FROM age(${TODAY_SQL}, e.birth_date))::int AS n) a
            CROSS JOIN LATERAL (SELECT (CASE WHEN e.birth_date + a.n * interval '1 year' >= ${TODAY_SQL} THEN e.birth_date + a.n * interval '1 year' ELSE e.birth_date + (a.n + 1) * interval '1 year' END)::date AS prox) p
-          WHERE e.status = 'ativo' AND e.birth_date IS NOT NULL ORDER BY p.prox, lower(e.full_name) LIMIT ${num(a.limite, 5, 1, 20)}`)).rows;
+          WHERE e.status IN ('ativo','pre_cadastro') AND e.birth_date IS NOT NULL ORDER BY p.prox, lower(e.full_name) LIMIT ${num(a.limite, 5, 1, 20)}`)).rows;
       return { data: { hoje: today(), proximos: rows } };
     } },
   { area: 'hr', decl: { name: 'pessoal_aniversariantes', description: 'Funcionários ativos que fazem aniversário em UM MÊS específico (de 1 a 12).', parameters: obj({ mes: N('Mês de 1 a 12. Padrão: mês atual') }) },
@@ -233,7 +233,7 @@ const TOOLS: Tool[] = [
       const mes = num(a.mes, Number(today().slice(5, 7)), 1, 12);
       const rows = (await pool.query(
         `SELECT e.full_name AS nome, to_char(e.birth_date,'DD/MM') AS aniversario, d.name AS departamento FROM employees e LEFT JOIN departments d ON d.id=e.department_id
-          WHERE e.status='ativo' AND e.birth_date IS NOT NULL AND extract(month FROM e.birth_date) = $1 ORDER BY extract(day FROM e.birth_date), lower(e.full_name) LIMIT 50`, [mes])).rows;
+          WHERE e.status IN ('ativo','pre_cadastro') AND e.birth_date IS NOT NULL AND extract(month FROM e.birth_date) = $1 ORDER BY extract(day FROM e.birth_date), lower(e.full_name) LIMIT 50`, [mes])).rows;
       return { data: { mes, quantidade: rows.length, aniversariantes: rows } };
     } },
   { area: 'salary', decl: { name: 'pessoal_folha_salarial', description: 'Totais da folha salarial dos funcionários ativos: total, média, menor e maior salário e totais por departamento.', parameters: obj({}) },

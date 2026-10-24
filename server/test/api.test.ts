@@ -1159,12 +1159,18 @@ test('RH: aniversários e tempo de casa (mês, próximos 30 dias, só ativos)', 
   await ins(4, 'Celeb Tempo Casa', null, shift(5, Y - 3));                      // 3 anos de casa em 5 dias
   await ins(5, 'Celeb Admitido Este Ano', null, shift(-1, Y));                  // 0 ano: não é aniversário de empresa
   await ins(6, 'Celeb Desligado', shift(0, 1992), shift(0, Y - 2), 'desligado');
+  await ins(7, 'Celeb Aguardando Admissao', shift(0, 1988), null, 'pre_cadastro');            // pré-cadastro: o aniversário aparece (com a marca de pendente)
   assert.equal((await con.get('/api/rh/celebrations')).status, 200);             // rh.view basta
   const r = (await admin.get(`/api/rh/celebrations?month=${Number(t.slice(5, 7))}`)).body;
   const mine = (a: any[]) => a.filter((x) => String(x.name).startsWith('Celeb'));
   const hoje = mine(r.birthdays).find((b: any) => b.name === 'Celeb Hoje');
   assert.ok(hoje && hoje.isToday === true && hoje.turns === Y - 1990 && hoje.day === Number(t.slice(8, 10)));
   assert.ok(!mine(r.birthdays).some((b: any) => b.name === 'Celeb Desligado'));
+  const pend = mine(r.birthdays).find((b: any) => b.name === 'Celeb Aguardando Admissao');
+  assert.ok(pend && pend.pending === true && pend.isToday === true);
+  assert.equal(mine(r.birthdays).find((b: any) => b.name === 'Celeb Hoje').pending, false);
+  assert.ok(mine(r.upcoming).some((u: any) => u.name === 'Celeb Aguardando Admissao' && u.kind === 'aniversario' && u.pending === true && u.daysLeft === 0));
+  assert.ok(!mine(r.workAnniversaries).some((w: any) => w.name === 'Celeb Aguardando Admissao'));          // tempo de casa exige admissão
   assert.ok(!mine(r.workAnniversaries).some((w: any) => ['Celeb Admitido Este Ano', 'Celeb Desligado'].includes(w.name)));
   const up = mine(r.upcoming);
   const names = up.map((u: any) => `${u.name}|${u.kind}|${u.number}|${u.daysLeft}`);

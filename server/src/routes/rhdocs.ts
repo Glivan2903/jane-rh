@@ -23,9 +23,9 @@ rhDocsRouter.get('/celebrations', requireAuth('rh.view'), h(async (req, res) => 
   const year = Number(today.slice(0, 4));
   const birthdays = (await pool.query(
     `SELECT e.id, e.full_name AS name, d.name AS department, extract(day FROM e.birth_date)::int AS day, ($2::int - extract(year FROM e.birth_date)::int) AS turns,
-            (to_char(e.birth_date,'MM-DD') = to_char(${TODAY_SQL},'MM-DD')) AS "isToday"
+            (to_char(e.birth_date,'MM-DD') = to_char(${TODAY_SQL},'MM-DD')) AS "isToday", (e.status = 'pre_cadastro') AS pending
        FROM employees e LEFT JOIN departments d ON d.id = e.department_id
-      WHERE e.status = 'ativo' AND e.birth_date IS NOT NULL AND extract(month FROM e.birth_date) = $1 ORDER BY day, lower(e.full_name)`, [month, year])).rows;
+      WHERE e.status IN ('ativo','pre_cadastro') AND e.birth_date IS NOT NULL AND extract(month FROM e.birth_date) = $1 ORDER BY day, lower(e.full_name)`, [month, year])).rows;
   const work = (await pool.query(
     `SELECT e.id, e.full_name AS name, d.name AS department, extract(day FROM e.admission_date)::int AS day, ($2::int - extract(year FROM e.admission_date)::int) AS years,
             e.admission_date::text AS "admissionDate", (to_char(e.admission_date,'MM-DD') = to_char(${TODAY_SQL},'MM-DD')) AS "isToday"
@@ -36,11 +36,11 @@ rhDocsRouter.get('/celebrations', requireAuth('rh.view'), h(async (req, res) => 
   const upcoming = (await pool.query(
     `SELECT * FROM (
        SELECT e.id, e.full_name AS name, d.name AS department, 'aniversario' AS kind, ${NEXT('e.birth_date')} AS date,
-              (extract(year FROM ${NEXT('e.birth_date')}) - extract(year FROM e.birth_date))::int AS number
-         FROM employees e LEFT JOIN departments d ON d.id = e.department_id WHERE e.status = 'ativo' AND e.birth_date IS NOT NULL
+              (extract(year FROM ${NEXT('e.birth_date')}) - extract(year FROM e.birth_date))::int AS number, (e.status = 'pre_cadastro') AS pending
+         FROM employees e LEFT JOIN departments d ON d.id = e.department_id WHERE e.status IN ('ativo','pre_cadastro') AND e.birth_date IS NOT NULL
        UNION ALL
        SELECT e.id, e.full_name, d.name, 'tempo_de_casa', ${NEXT('e.admission_date')},
-              (extract(year FROM ${NEXT('e.admission_date')}) - extract(year FROM e.admission_date))::int
+              (extract(year FROM ${NEXT('e.admission_date')}) - extract(year FROM e.admission_date))::int, false
          FROM employees e LEFT JOIN departments d ON d.id = e.department_id WHERE e.status = 'ativo' AND e.admission_date IS NOT NULL
      ) x WHERE x.date <= ${TODAY_SQL} + 30 AND (x.kind = 'aniversario' OR x.number >= 1) ORDER BY x.date, lower(x.name)`)).rows
     .map((r) => ({ ...r, date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : r.date, daysLeft: Math.round((Date.parse(`${(r.date instanceof Date ? r.date.toISOString() : String(r.date)).slice(0, 10)}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86400000) }));
