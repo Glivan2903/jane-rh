@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import {
-  Activity, AlertTriangle, Bot, Cake, CalendarClock, FileCheck2, Landmark, Layers, LineChart, Link2, ListChecks, ShoppingCart, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
+  Download, RefreshCw, WifiOff, Activity, AlertTriangle, Bot, Cake, CalendarClock, FileCheck2, Landmark, Layers, LineChart, Link2, ListChecks, ShoppingCart, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
   ChevronDown, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon,
 } from 'lucide-react';
 import { useAuth, useTheme } from '../lib/app';
 import { api } from '../lib/api';
 import { Brand } from './brand';
+import { Modal } from './ui';
+import { applyUpdate, isIos, promptInstall, usePwa } from '../lib/pwa';
 import { useCompany } from '../lib/company';
 
 interface Item { to: string; label: string; icon: LucideIcon; perm?: string[]; end?: boolean; soon?: boolean }
@@ -89,6 +91,7 @@ export function Layout() {
   const notices = useNotices();
   const company = useCompany();
   const mainRef = useRef<HTMLElement>(null);
+  const pwa = usePwa(); const [iosHelp, setIosHelp] = useState(false);
   const sbRef = useRef<HTMLElement>(null);
 
   useEffect(() => { setOpen(false); setMenu(null); }, [loc.pathname]);
@@ -202,12 +205,23 @@ export function Layout() {
                 <div className="absolute right-0 mt-2 w-60 rounded-xl border bg-card p-1.5 shadow-xl">
                   <div className="border-b px-3 py-2"><p className="truncate text-sm font-semibold">{me!.name}</p><p className="truncate text-xs text-muted-foreground">{me!.email}</p></div>
                   <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-muted" onClick={() => nav('/perfil/senha')}><KeyRound className="h-4 w-4" />Alterar senha</button>
+                  {!pwa.installed && (pwa.canInstall || isIos()) && <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-muted" onClick={async () => { setMenu(null); if (pwa.canInstall) await promptInstall(); else setIosHelp(true); }}><Download className="h-4 w-4" />Instalar aplicativo</button>}
                   <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-danger hover:bg-muted" onClick={async () => { await logout(); nav('/login'); }}><LogOut className="h-4 w-4" />Sair</button>
                 </div>
               )}
             </div>
           </div>
         </header>
+        {pwa.offline && <div role="status" className="no-print flex items-center gap-2 border-b border-warning/30 bg-warning/15 px-4 py-1.5 text-xs font-medium"><WifiOff className="h-3.5 w-3.5 shrink-0" />Sem conexão com a internet. Os dados não carregam nem são salvos até a conexão voltar.</div>}
+        {pwa.updateReady && (
+          <div role="status" className="no-print fixed inset-x-3 bottom-3 z-50 flex items-center gap-3 rounded-xl border bg-card p-3 text-sm shadow-xl sm:left-auto sm:right-4 sm:w-96">
+            <RefreshCw className="h-4 w-4 shrink-0 text-primary" /><span className="flex-1">Há uma nova versão do Gentis.</span>
+            <button className="btn-primary btn-sm" onClick={applyUpdate}>Atualizar</button>
+          </div>)}
+        {iosHelp && (
+          <Modal title="Instalar o Gentis no iPhone ou iPad" size="sm" onClose={() => setIosHelp(false)} footer={<button className="btn-primary" onClick={() => setIosHelp(false)}>Entendi</button>}>
+            <ol className="list-decimal space-y-2 pl-5 text-sm"><li>Abra o Gentis no <b>Safari</b>.</li><li>Toque no botão <b>Compartilhar</b> (o quadrado com a seta para cima).</li><li>Escolha <b>Adicionar à Tela de Início</b> e confirme.</li></ol>
+          </Modal>)}
         <main ref={mainRef} className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6" onClick={() => menu && setMenu(null)}>
           <div className="w-full"><Outlet /></div>
         </main>

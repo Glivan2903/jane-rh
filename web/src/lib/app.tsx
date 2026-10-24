@@ -6,7 +6,7 @@ import { Modal } from '../components/ui';
 
 // ---------- Auth ----------
 export interface Me { id: string; name: string; email: string; role: string; permissions: string[]; mustChangePassword: boolean }
-interface AuthCtx { me: Me | null; loading: boolean; login: (l: string, p: string) => Promise<Me>; logout: () => Promise<void>; refresh: () => Promise<void>; setup: (d: SetupData) => Promise<Me>; can: (...p: string[]) => boolean }
+interface AuthCtx { me: Me | null; loading: boolean; netError: boolean; login: (l: string, p: string) => Promise<Me>; logout: () => Promise<void>; refresh: () => Promise<void>; setup: (d: SetupData) => Promise<Me>; can: (...p: string[]) => boolean }
 export interface SetupData { name: string; email: string; password: string; confirm: string; token?: string }
 const Auth = createContext<AuthCtx>(null as never);
 export const useAuth = () => useContext(Auth);
@@ -14,17 +14,23 @@ export const useAuth = () => useContext(Auth);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
+  const [netError, setNetError] = useState(false);
+  // Sem internet não é o mesmo que sessão expirada: nesse caso não manda para o login, avisa e tenta de novo quando a conexão voltar.
   const refresh = useCallback(async () => {
-    try { setMe(await api.get<Me>('/auth/me')); } catch { setMe(null); } finally { setLoading(false); }
+    try { setMe(await api.get<Me>('/auth/me')); setNetError(false); }
+    catch (e) { if (e instanceof ApiError && e.status === 0) setNetError(true); else { setMe(null); setNetError(false); } }
+    finally { setLoading(false); }
   }, []);
-  useEffect(() => { setUnauthorizedHandler(() => setMe(null)); refresh(); }, [refresh]);
+  useEffect(() => { setUnauthorizedHandler(() => setMe(null)); refresh(); window.addEventListener('online', refresh); return () => window.removeEventListener('online', refresh); }, [refresh]);
+  // Na tela de "sem conexão", tenta de novo sozinho: o evento "online" pode chegar antes de a rede estar realmente pronta.
+  useEffect(() => { if (!netError) return; const t = setInterval(refresh, 5000); return () => clearInterval(t); }, [netError, refresh]);
   const value = useMemo<AuthCtx>(() => ({
-    me, loading, refresh,
+    me, loading, netError, refresh,
     login: async (login, password) => { const u = await api.post<Me>('/auth/login', { login, password }); setMe(u); return u; },
     setup: async (d) => { const u = await api.post<Me>('/auth/setup', d); setMe(u); return u; },
     logout: async () => { try { await api.post('/auth/logout'); } finally { setMe(null); } },
     can: (...p) => !!me && p.some((x) => me.permissions.includes(x)),
-  }), [me, loading, refresh]);
+  }), [me, loading, netError, refresh]);
   return <Auth.Provider value={value}>{children}</Auth.Provider>;
 }
 

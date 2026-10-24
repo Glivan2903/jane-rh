@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AuthProvider, ConfirmProvider, ToastProvider, useAuth } from './lib/app';
 import { Layout } from './components/Layout';
 import { ErrorBox, Spinner } from './components/ui';
+import { WifiOff } from 'lucide-react';
 import Login from './pages/Login';
 import Setup from './pages/Setup';
 import ChangePassword from './pages/ChangePassword';
@@ -30,8 +31,14 @@ const Settings = lazy(() => import('./pages/cfg/Settings'));
 const CompanyPage = lazy(() => import('./pages/cfg/Company'));
 
 function Protected({ children }: { children: JSX.Element }) {
-  const { me, loading } = useAuth(); const loc = useLocation();
+  const { me, loading, netError, refresh } = useAuth(); const loc = useLocation();
   if (loading) return <div className="flex h-full items-center justify-center"><Spinner className="h-8 w-8 text-primary" /></div>;
+  if (!me && netError) return (
+    <div className="flex h-full items-center justify-center p-6"><div className="card max-w-sm p-6 text-center">
+      <WifiOff className="mx-auto h-10 w-10 text-muted-foreground" /><h1 className="mt-3 font-display text-lg font-bold">Sem conexão com a internet</h1>
+      <p className="mt-1 text-sm text-muted-foreground">O Gentis precisa de internet para carregar os seus dados. Verifique a conexão: tentamos de novo sozinhos assim que ela voltar.</p>
+      <button className="btn-primary mt-4" onClick={() => refresh()}>Tentar novamente</button>
+    </div></div>);
   if (!me) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
   if (me.mustChangePassword && loc.pathname !== '/perfil/senha') return <Navigate to="/perfil/senha" replace />;
   return children;
