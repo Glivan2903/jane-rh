@@ -4,11 +4,11 @@ export type SoonIcon =
   | 'alert' | 'line' | 'clock' | 'landmark' | 'scale' | 'transfer' | 'tag' | 'link' | 'check' | 'plus' | 'undo' | 'layers' | 'filter' | 'report' | 'id' | 'merge';
 
 export interface SoonItem { icon: SoonIcon; title: string; text: string }
-export interface SoonFeature { slug: string; label: string; icon: SoonIcon; headline: string; description: string; items: SoonItem[] }
+export interface SoonFeature { slug: string; label: string; icon: SoonIcon; headline: string; /* vazio: sem linha de destaque */ description: string; items: SoonItem[] }
 
 export const SOON: Record<string, SoonFeature> = {
   assistente: {
-    slug: 'assistente', label: 'Assistente de IA', icon: 'bot', headline: 'Pergunte ao sistema, em português',
+    slug: 'assistente', label: 'Assistente de IA', icon: 'bot', headline: '',
     description: 'Faça perguntas do dia a dia sobre financeiro, estoque e pessoal e receba a resposta na hora, direto no sistema.',
     items: [
       { icon: 'message', title: 'Converse do seu jeito', text: 'Pergunte "quanto gastei este mês?" ou "quais produtos estão acabando?" sem procurar em telas e relatórios.' },

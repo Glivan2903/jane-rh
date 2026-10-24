@@ -15,21 +15,23 @@ export default function ComingSoon({ slug }: { slug: string }) {
   if (!f) return <ErrorBox message="Página não encontrada." />;
   const Hero = ICONS[f.icon];
   return (
-    <div className="flex min-h-[calc(100dvh-7.5rem)] flex-col gap-4 lg:gap-5">
-      <section className="relative shrink-0 overflow-hidden rounded-2xl bg-[#0b1f2e] p-6 text-white sm:p-8">
+    <div className="flex min-h-[calc(100dvh-7rem)] flex-col gap-3 lg:gap-4">
+      <section className="relative shrink-0 overflow-hidden rounded-2xl bg-[#0b1f2e] px-5 py-4 text-white sm:px-6 sm:py-5">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_15%_0%,rgba(20,184,166,.32),transparent_55%),radial-gradient(ellipse_at_95%_100%,rgba(255,122,89,.22),transparent_50%)]" />
-        <Hero aria-hidden className="pointer-events-none absolute -right-6 -top-6 h-56 w-56 text-white/[0.06] sm:h-72 sm:w-72 lg:-right-2 lg:h-80 lg:w-80" strokeWidth={1.2} />
+        <Hero aria-hidden className="pointer-events-none absolute -right-3 -top-3 h-40 w-40 text-white/[0.06] sm:h-48 sm:w-48" strokeWidth={1.2} />
         <div className="relative max-w-3xl">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-bold text-white"><Hourglass className="h-3.5 w-3.5" />Em breve</span>
-          <h1 className="mt-4 font-display text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">{f.label}</h1>
-          <p className="mt-2 text-lg font-medium text-[#5eead4] sm:text-xl">{f.headline}</p>
-          <p className="mt-3 max-w-2xl text-base leading-relaxed text-white/75">{f.description}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <h1 className="font-display text-2xl font-bold leading-tight sm:text-3xl">{f.label}</h1>
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-bold text-white"><Hourglass className="h-3 w-3" />Em breve</span>
+          </div>
+          {f.headline && <p className="mt-1 text-base font-medium text-[#5eead4] sm:text-lg">{f.headline}</p>}
+          <p className="mt-1.5 max-w-2xl text-sm leading-snug text-white/75 sm:text-[15px]">{f.description}</p>
         </div>
       </section>
 
       <section aria-label="O que será possível fazer" className="flex flex-1 flex-col">
-        <h2 className="mb-3 font-display text-lg font-bold">O que será possível fazer</h2>
-        <div className="grid flex-1 auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-6 lg:gap-4">
+        <h2 className="mb-2 font-display text-base font-bold">O que será possível fazer</h2>
+        <div className="grid flex-1 auto-rows-fr gap-2.5 sm:grid-cols-2 lg:grid-cols-6 lg:gap-3">
           {f.items.map((it, i) => {
             const Icon = ICONS[it.icon];
             const n = f.items.length; const rest = n % 3;
@@ -37,16 +39,16 @@ export default function ComingSoon({ slug }: { slug: string }) {
             const lg = rest === 1 && i === n - 1 ? 'lg:col-span-6' : rest === 2 && i >= n - 2 ? 'lg:col-span-3' : 'lg:col-span-2';
             const sm = n % 2 === 1 && i === n - 1 ? 'sm:col-span-2' : '';
             return (
-              <div key={it.title} className={`card flex flex-col gap-3 p-5 ${sm} ${lg}`}>
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="h-5 w-5" /></span>
-                <div><h3 className="font-display text-base font-bold">{it.title}</h3><p className="mt-1 text-sm leading-relaxed text-muted-foreground">{it.text}</p></div>
+              <div key={it.title} className={`card flex items-start gap-3 p-3 ${sm} ${lg}`}>
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Icon className="h-[18px] w-[18px]" /></span>
+                <div className="min-w-0"><h3 className="text-sm font-bold leading-tight">{it.title}</h3><p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">{it.text}</p></div>
               </div>);
           })}
         </div>
       </section>
 
-      <div role="note" className="flex shrink-0 items-start gap-3 rounded-xl border border-primary/25 bg-primary/5 p-4 text-sm sm:items-center">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary"><UserCog className="h-5 w-5" /></span>
+      <div role="note" className="flex shrink-0 items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-3.5 py-2.5 text-sm">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary"><UserCog className="h-4 w-4" /></span>
         <p><b>Este módulo está em desenvolvimento.</b> Para saber quando estará disponível, entre em contato com o administrador do sistema.</p>
       </div>
     </div>
