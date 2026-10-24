@@ -4,6 +4,7 @@ import gsap from 'gsap';
 import {
   Download, RefreshCw, WifiOff, Activity, AlertTriangle, Bot, Cake, CalendarClock, FileCheck2, Landmark, Layers, LineChart, Link2, ListChecks, ShoppingCart, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
   ChevronDown, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useAuth, useTheme } from '../lib/app';
 import { api } from '../lib/api';
@@ -47,6 +48,7 @@ const NAV: Group[] = [
   ] },
   { label: 'Cadastros', icon: Users, perm: ['fin.view', 'est.view'], items: [
     { to: '/cadastros/parceiros', label: 'Clientes e fornecedores', icon: HandCoins, soon: true },
+    { to: '/cadastros/importar', label: 'Importar planilhas', icon: FileSpreadsheet, soon: true },
   ] },
   { label: 'Configurações', icon: Settings, perm: ['cfg.users', 'cfg.roles', 'cfg.audit', 'cfg.backup', 'cfg.settings'], items: [
     { to: '/config/empresa', label: 'Dados da empresa', icon: Building2, perm: ['cfg.settings'] },

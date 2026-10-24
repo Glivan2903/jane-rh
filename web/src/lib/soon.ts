@@ -131,4 +131,16 @@ export const SOON: Record<string, SoonFeature> = {
       { icon: 'scale', title: 'Ajuste por lote', text: 'Corrija o saldo de um lote específico sem mexer nos demais.' },
     ],
   },
+  'cad-importar': {
+    slug: 'cad-importar', label: 'Importar planilhas', icon: 'upload', headline: 'Traga seus cadastros de uma planilha',
+    description: 'Cadastre dezenas de produtos, clientes e fornecedores de uma vez a partir de uma planilha Excel ou CSV.',
+    items: [
+      { icon: 'file', title: 'Excel ou CSV', text: 'Envie a planilha como ela está e baixe um modelo pronto para preencher.' },
+      { icon: 'list', title: 'Escolha das colunas', text: 'O sistema reconhece os títulos e você confere qual coluna vai em cada campo.' },
+      { icon: 'check', title: 'Conferência antes de importar', text: 'Veja linha a linha o que será criado, o que já existe e o que tem erro, sem gravar nada ainda.' },
+      { icon: 'boxes', title: 'Produtos com saldo inicial', text: 'Importe nome, unidade, categoria, código de barras, custo, preço e a quantidade em estoque.' },
+      { icon: 'users', title: 'Clientes e fornecedores', text: 'Importe com CPF ou CNPJ validado, e-mail e telefone, no mesmo cadastro único.' },
+      { icon: 'shield', title: 'Nada é alterado', text: 'Quem já está cadastrado é ignorado, então dá para importar a mesma planilha de novo sem duplicar.' },
+    ],
+  },
 };
