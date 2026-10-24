@@ -103,6 +103,7 @@ export function Layout() {
     gsap.from(sbRef.current!.querySelectorAll('[data-nav]'), { x: -14, opacity: 0, duration: 0.4, stagger: 0.025, ease: 'power2.out', delay: 0.1, clearProps: 'all' });
   }, []);
 
+  const fill = loc.pathname.startsWith('/assistente');          // páginas de tela cheia (chat): ocupam toda a altura visível
   const groups = NAV.filter((g) => (g.ai ? !!me?.ai?.enabled && (me.ai.finance || me.ai.stock || me.ai.hr) : can(...g.perm)));
   // Módulos expansíveis: abre o da rota atual; o usuário pode abrir/fechar vários ao mesmo tempo.
   const groupOfPath = () => groups.find((g) => g.items.some((i) => (i.end ? loc.pathname === i.to : loc.pathname.startsWith(i.to))))?.label ?? null;
@@ -125,7 +126,7 @@ export function Layout() {
             </NavLink>
           );
           if (collapsed) return <ul key={g.label} data-nav className="space-y-0.5 border-b border-white/10 pb-2 last:border-0">{items.map((i) => <li key={i.to}>{link(i)}</li>)}</ul>;
-          if (items.length === 1 && g.label === 'Geral') return <div key={g.label} data-nav className="pb-1">{link(items[0])}</div>;
+          if (items.length === 1 && (g.label === 'Geral' || g.ai)) return <div key={g.label} data-nav className="pb-1">{link(items[0])}</div>;
           const isOpen = openGroups.has(g.label) && !collapsed;
           const hasActive = items.some((i) => (i.end ? loc.pathname === i.to : loc.pathname.startsWith(i.to)));
           return (
@@ -202,8 +203,8 @@ export function Layout() {
             </div>
           </div>
         </header>
-        <main ref={mainRef} className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6" onClick={() => menu && setMenu(null)}>
-          <div className="w-full"><Outlet /></div>
+        <main ref={mainRef} className={fill ? 'min-h-0 flex-1 overflow-hidden p-2 sm:p-4' : 'flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6'} onClick={() => menu && setMenu(null)}>
+          <div className={fill ? 'h-full' : 'w-full'}><Outlet /></div>
         </main>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Bot, Download, Loader2, MessageSquarePlus, SendHorizontal, Trash2, User } from 'lucide-react';
+import { Bot, Download, History, Loader2, MessageSquarePlus, SendHorizontal, Trash2, User } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ErrorBox, PageHeader, Skeleton } from '../../components/ui';
+import { ErrorBox, Skeleton } from '../../components/ui';
 import { SafeText } from '../../components/SafeText';
 import { PALETTE } from '../../components/charts';
 import { api } from '../../lib/api';
@@ -81,14 +81,14 @@ export default function Assistant() {
   const [convId, setConvId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [stage, setStage] = useState('');
-  const [loadingConv, setLoadingConv] = useState(false);
+  const [loadingConv, setLoadingConv] = useState(false); const [showList, setShowList] = useState(false);
   const bottom = useRef<HTMLDivElement>(null); const abort = useRef<AbortController | null>(null);
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [msgs, stage]);
   useEffect(() => () => abort.current?.abort(), []);
 
   const open = useCallback(async (id: string | null) => {
-    abort.current?.abort(); setBusy(false); setStage(''); setConvId(id);
+    abort.current?.abort(); setBusy(false); setStage(''); setConvId(id); setShowList(false);
     if (!id) { setMsgs([]); return; }
     setLoadingConv(true);
     try { const c = await api.get<{ messages: Msg[] }>(`/ai/conversations/${id}`); setMsgs(c.messages); } catch (e) { toast.error(errMsg(e)); } finally { setLoadingConv(false); }
@@ -140,17 +140,21 @@ export default function Assistant() {
   const left = st.limits.messagesPerDay - st.usage.messagesToday;
 
   return (
-    <div>
-      <PageHeader title="Assistente de IA" subtitle="Pergunte em português sobre os dados que o administrador liberou para você. O assistente só consulta; não altera nada." />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
+        <div className="min-w-0"><h1 className="font-display text-xl font-bold leading-tight sm:text-2xl">Assistente de IA</h1>
+          <p className="hidden truncate text-xs text-muted-foreground sm:block">Pergunte em português sobre os dados liberados para você. O assistente só consulta; não altera nada.</p></div>
+        <button className="btn-outline btn-sm lg:hidden" onClick={() => setShowList((v) => !v)} aria-expanded={showList}><History className="h-4 w-4" />Conversas</button>
+      </div>
       {!st.access.enabled || !(st.access.finance || st.access.stock || st.access.hr) ? (
         <div role="status" className="card p-6 text-sm">O administrador ainda não liberou o Assistente de IA para o seu usuário. Peça acesso em <b>Configurações &gt; Assistente de IA</b>.</div>
       ) : !st.configured ? (
         <div role="alert" className="card border-warning/40 bg-warning/10 p-6 text-sm">O Assistente de IA ainda não foi configurado neste ambiente (chave do modelo ausente). Avise o administrador.</div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[250px_1fr]">
-          <aside className="card h-fit p-2">
+        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[250px_1fr]">
+          <aside className={`card min-h-0 flex-col p-2 ${showList ? 'flex' : 'hidden'} max-lg:max-h-60 lg:flex`}>
             <button className="btn-primary mb-2 w-full" onClick={() => open(null)}><MessageSquarePlus className="h-4 w-4" />Nova conversa</button>
-            <div className="max-h-[60vh] space-y-0.5 overflow-y-auto">
+            <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
               {(convs.data ?? []).map((c) => (
                 <div key={c.id} className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm ${convId === c.id ? 'bg-primary/10 font-semibold text-primary' : 'hover:bg-muted'}`}>
                   <button className="min-w-0 flex-1 truncate text-left" onClick={() => open(c.id)} title={c.title}>{c.title}</button>
@@ -159,8 +163,8 @@ export default function Assistant() {
               {convs.data?.length === 0 && <p className="px-2 py-3 text-xs text-muted-foreground">Nenhuma conversa ainda.</p>}
             </div>
           </aside>
-          <section className="card flex min-h-[60vh] flex-col">
-            <div className="flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
+          <section className="card flex min-h-0 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5" aria-live="polite"><div className="mx-auto w-full max-w-4xl space-y-4">
               {loadingConv ? <Skeleton className="h-32 w-full" /> : msgs.length === 0 ? (
                 <div className="mx-auto max-w-xl py-8 text-center">
                   <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary"><Bot className="h-6 w-6" /></div>
@@ -173,7 +177,7 @@ export default function Assistant() {
               ) : msgs.map((m, i) => (
                 <div key={i} className={`flex gap-2.5 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
                   <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${m.role === 'user' ? 'bg-accent/20 text-accent' : 'bg-primary/10 text-primary'}`}>{m.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}</div>
-                  <div className={`max-w-[85%] min-w-0 rounded-2xl px-3.5 py-2 ${m.role === 'user' ? 'bg-primary text-primary-foreground' : m.error ? 'border border-danger/40 bg-danger/10 text-danger' : 'bg-muted'}`}>
+                  <div className={`max-w-[88%] min-w-0 rounded-2xl px-3.5 py-2 ${m.role === 'user' ? 'bg-primary text-primary-foreground' : m.error ? 'border border-danger/40 bg-danger/10 text-danger' : 'bg-muted'}`}>
                     {m.role === 'user' ? <p className="whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">{m.content}</p> : m.content ? <SafeText text={m.content} /> : <span className="inline-flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{stage || 'Pensando…'}</span>}
                     {m.role === 'assistant' && busy && i === msgs.length - 1 && m.content && stage && <p className="mt-1 text-xs text-muted-foreground">{stage}</p>}
                     {m.blocks?.map((b, j) => (b.type === 'table' ? <TableView key={j} b={b} /> : <ChartView key={j} b={b} />))}
@@ -181,14 +185,14 @@ export default function Assistant() {
                 </div>
               ))}
               <div ref={bottom} />
-            </div>
-            <form onSubmit={send} className="border-t p-3">
-              <div className="flex items-end gap-2">
+            </div></div>
+            <form onSubmit={send} className="shrink-0 border-t p-3">
+              <div className="mx-auto flex w-full max-w-4xl items-end gap-2">
                 <textarea aria-label="Pergunta" className="input min-h-[44px] flex-1 resize-none" rows={1} maxLength={4000} placeholder="Digite sua pergunta…" value={text} disabled={busy || !usable}
                   onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
                 <button className="btn-primary h-11" disabled={busy || !text.trim() || !usable} aria-label="Enviar">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}</button>
               </div>
-              <p className="mt-1.5 text-[11px] text-muted-foreground">Respostas geradas por IA a partir dos dados do sistema: confira valores importantes. Seus dados de CPF e documentos nunca são enviados ao modelo. {left <= 10 && `Restam ${Math.max(left, 0)} pergunta(s) hoje.`}</p>
+              <p className="mx-auto mt-1.5 w-full max-w-4xl text-[11px] text-muted-foreground">Respostas geradas por IA a partir dos dados do sistema: confira valores importantes. Seus dados de CPF e documentos nunca são enviados ao modelo. {left <= 10 && `Restam ${Math.max(left, 0)} pergunta(s) hoje.`}</p>
             </form>
           </section>
         </div>
