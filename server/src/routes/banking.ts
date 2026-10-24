@@ -14,10 +14,10 @@ const r2 = (n: unknown) => Math.round(Number(n ?? 0) * 100) / 100;
 const brl = (n: unknown) => Number(n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** Conta efetiva de um lançamento: sem account_id (lançamentos antigos) vale a "Conta padrão". */
-const DEFAULT_ID = `(SELECT id FROM bank_accounts WHERE is_default)`;
-const EFF_ACCOUNT = `COALESCE(t.account_id, ${DEFAULT_ID})`;
+export const DEFAULT_ID = `(SELECT id FROM bank_accounts WHERE is_default)`;
+export const EFF_ACCOUNT = `COALESCE(t.account_id, ${DEFAULT_ID})`;
 /** Saldo = saldo inicial + baixas realizadas (receitas − despesas) + transferências recebidas − enviadas. */
-const BALANCE = `a.initial_balance
+export const BALANCE = `a.initial_balance
   + COALESCE((SELECT sum(CASE WHEN t.type='receita' THEN t.amount ELSE -t.amount END) FROM financial_transactions t WHERE t.status='realizada' AND ${EFF_ACCOUNT} = a.id),0)
   + COALESCE((SELECT sum(x.amount) FROM bank_transfers x WHERE x.to_account_id = a.id),0)
   - COALESCE((SELECT sum(x.amount) FROM bank_transfers x WHERE x.from_account_id = a.id),0)`;
@@ -119,9 +119,8 @@ bankingRouter.delete('/transfers/:id', requireAuth('fin.accounts'), h(async (req
 }));
 
 // ---------- Fluxo de caixa projetado ----------
-bankingRouter.get('/cashflow', requireAuth('fin.view'), h(async (req, res) => {
-  const days = [30, 60, 90].includes(Number(req.query.days)) ? Number(req.query.days) : 30;
-  const accountId = qstr(req, 'accountId') ? Number(qstr(req, 'accountId')) : null;
+export type Cashflow = Awaited<ReturnType<typeof computeCashflow>>;
+export async function computeCashflow(days: number, accountId: number | null) {
   const scope = accountId ? 'a.id = $1' : 'a.active';
   const sp = accountId ? [accountId] : [];
   const opening = r2((await pool.query(`SELECT COALESCE(sum(${BALANCE}),0) AS s FROM bank_accounts a WHERE ${scope}`, sp)).rows[0].s);
@@ -154,11 +153,16 @@ bankingRouter.get('/cashflow', requireAuth('fin.view'), h(async (req, res) => {
     `SELECT t.type, COALESCE(sum(t.amount),0) AS total, count(*)::int AS qtd FROM financial_transactions t
       WHERE t.status='pendente' AND t.due_date < ${TODAY_SQL} AND ${accountId ? `${EFF_ACCOUNT} = $1` : `${EFF_ACCOUNT} IN (SELECT id FROM bank_accounts WHERE active)`} GROUP BY t.type`, sp)).rows;
   const ov = (type: string) => ({ total: r2(overdue.find((x) => x.type === type)?.total), qtd: overdue.find((x) => x.type === type)?.qtd ?? 0 });
-  res.json({
+  return {
     days, from: t0, to: series.at(-1)!.date, accountId, opening, closing: series.at(-1)!.balance,
     totalIn: r2(totIn), totalOut: r2(totOut), lowest: min, negative: min.balance < 0, series,
     overdue: { receber: ov('receita'), pagar: ov('despesa') },
-  });
+  };
+}
+
+bankingRouter.get('/cashflow', requireAuth('fin.view'), h(async (req, res) => {
+  const days = [30, 60, 90].includes(Number(req.query.days)) ? Number(req.query.days) : 30;
+  res.json(await computeCashflow(days, qstr(req, 'accountId') ? Number(qstr(req, 'accountId')) : null));
 }));
 
 // ---------- Conciliação bancária (OFX) ----------

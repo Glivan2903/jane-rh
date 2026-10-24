@@ -12,6 +12,7 @@ import { HttpError, Where, h, likeEsc, listParams, money, optDate, optInt, optSt
 import { EFF, TODAY_SQL, financeSummary } from '../services/finance.js';
 import { getSettings } from '../services/settings.js';
 import { lookupRouter } from './lookup.js';
+import { BALANCE, EFF_ACCOUNT, computeCashflow } from './banking.js';
 
 export const finRouter = Router();
 
@@ -329,7 +330,19 @@ const FREPORTS: Record<string, string> = {
   receitas: 'Relatório de receitas', despesas: 'Relatório de despesas', 'a-pagar': 'Contas a pagar', 'a-receber': 'Contas a receber',
   vencidas: 'Contas vencidas', 'fluxo-caixa': 'Fluxo de caixa', resultado: 'Resultado financeiro por período',
   'despesas-categoria': 'Despesas por categoria', 'centros-custo': 'Resultado por centro de custo', 'receitas-categoria': 'Receitas por categoria', historico: 'Histórico de movimentações',
+  'fluxo-projetado': 'Fluxo de caixa projetado (30/60/90 dias)', 'saldo-contas': 'Saldo por conta', 'extrato-conta': 'Extrato da conta (com saldo)',
+  transferencias: 'Transferências entre contas', conciliacao: 'Conciliação bancária (extrato OFX)', 'por-cadastro': 'Movimento por cliente/fornecedor',
 };
+
+/** Filtros comuns de conta, centro de custo e cliente/fornecedor (alias `t` = financial_transactions). Retorna ` AND ...` e os parâmetros, numerados a partir de `from`. */
+function extraConds(req: import('express').Request, from: number) {
+  const params: unknown[] = []; let sql = '';
+  const acc = qstr(req, 'accountId'); if (acc) { params.push(Number(acc)); sql += ` AND ${EFF_ACCOUNT} = $${from + params.length - 1}`; }
+  const cc = qstr(req, 'costCenterId');
+  if (cc === 'none') sql += ' AND t.cost_center_id IS NULL'; else if (cc) { params.push(Number(cc)); sql += ` AND t.cost_center_id = $${from + params.length - 1}`; }
+  const pt = qstr(req, 'partyId'); if (pt) { params.push(Number(pt)); sql += ` AND t.party_id = $${from + params.length - 1}`; }
+  return { sql, params };
+}
 finRouter.get('/reports', requireAuth('fin.view'), (_req, res) => { res.json(FREPORTS); });
 
 const brl = (n: unknown) => Number(n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -357,24 +370,26 @@ finRouter.get('/reports/:name', requireAuth('fin.view'), h(async (req, res) => {
     if (name === 'vencidas') w.add(`${EFF} = 'vencida'`);
     if (cat) w.add('t.category_id = ?', Number(cat));
     if (st) w.add(`${EFF} = ?`, st);
-    const rows = (await pool.query(`SELECT ${TX_SELECT} ${TX_FROM} ${w.sql} ORDER BY t.due_date, t.id LIMIT 5000`, w.params)).rows;
+    const ex = extraConds(req, w.params.length + 1);
+    const rows = (await pool.query(`SELECT ${TX_SELECT} ${TX_FROM} ${w.sql}${ex.sql} ORDER BY t.due_date, t.id LIMIT 5000`, [...w.params, ...ex.params])).rows;
     const total = rows.filter((r) => r.status !== 'cancelada').reduce((a, r) => a + Number(r.amount), 0);
     return out(
-      [{ key: 'description', label: 'Descrição' }, { key: 'category', label: 'Categoria' }, { key: 'party', label: 'Origem/Fornecedor' }, { key: 'amount', label: 'Valor (R$)' },
+      [{ key: 'description', label: 'Descrição' }, { key: 'category', label: 'Categoria' }, { key: 'costCenter', label: 'Centro de custo' }, { key: 'account', label: 'Conta' }, { key: 'party', label: 'Origem/Fornecedor' }, { key: 'amount', label: 'Valor (R$)' },
        { key: 'dueDate', label: 'Vencimento' }, { key: 'settledDate', label: 'Data efetiva' }, { key: 'method', label: 'Forma' }, { key: 'status', label: 'Situação' }],
       rows.map((r) => ({ ...r, amount: brl(r.amount), dueDate: dmy(r.dueDate), settledDate: dmy(r.settledDate) })),
       { totalLabel: 'Total (exceto cancelados)', total: brl(total) });
   }
 
   if (name === 'fluxo-caixa') {
+    const ex = extraConds(req, 3);
     const rows = (await pool.query(
       `WITH d AS (SELECT generate_series($1::date, $2::date, interval '1 day')::date AS dia)
        SELECT to_char(d.dia,'DD/MM/YYYY') AS dia,
-         COALESCE((SELECT sum(amount) FROM financial_transactions t WHERE t.type='receita' AND t.status='realizada' AND t.settled_date=d.dia),0) AS entradas,
-         COALESCE((SELECT sum(amount) FROM financial_transactions t WHERE t.type='despesa' AND t.status='realizada' AND t.settled_date=d.dia),0) AS saidas,
-         COALESCE((SELECT sum(amount) FROM financial_transactions t WHERE t.type='receita' AND t.status='pendente' AND t.due_date=d.dia),0) AS "entradasPrevistas",
-         COALESCE((SELECT sum(amount) FROM financial_transactions t WHERE t.type='despesa' AND t.status='pendente' AND t.due_date=d.dia),0) AS "saidasPrevistas"
-       FROM d ORDER BY d.dia LIMIT 400`, [from, to])).rows;
+         COALESCE((SELECT sum(amount) FROM financial_transactions t WHERE t.type='receita' AND t.status='realizada' AND t.settled_date=d.dia${ex.sql}),0) AS entradas,
+         COALESCE((SELECT sum(amount) FROM financial_transactions t WHERE t.type='despesa' AND t.status='realizada' AND t.settled_date=d.dia${ex.sql}),0) AS saidas,
+         COALESCE((SELECT sum(amount) FROM financial_transactions t WHERE t.type='receita' AND t.status='pendente' AND t.due_date=d.dia${ex.sql}),0) AS "entradasPrevistas",
+         COALESCE((SELECT sum(amount) FROM financial_transactions t WHERE t.type='despesa' AND t.status='pendente' AND t.due_date=d.dia${ex.sql}),0) AS "saidasPrevistas"
+       FROM d ORDER BY d.dia LIMIT 400`, [from, to, ...ex.params])).rows;
     let acc = 0;
     return out(
       [{ key: 'dia', label: 'Data' }, { key: 'entradas', label: 'Entradas realizadas' }, { key: 'saidas', label: 'Saídas realizadas' }, { key: 'saldo', label: 'Resultado do dia' },
@@ -383,7 +398,7 @@ finRouter.get('/reports/:name', requireAuth('fin.view'), h(async (req, res) => {
         const saldo = Number(r.entradas) - Number(r.saidas); acc += saldo;
         return { dia: r.dia, entradas: brl(r.entradas), saidas: brl(r.saidas), saldo: brl(saldo), acumulado: brl(acc), entradasPrevistas: brl(r.entradasPrevistas), saidasPrevistas: brl(r.saidasPrevistas) };
       }),
-      { note: 'Resultado financeiro do período, calculado a partir das baixas registradas. Não representa saldo bancário.' });
+      { note: 'Resultado financeiro do período, calculado a partir das baixas registradas. Para o saldo das contas, use "Saldo por conta" ou "Extrato da conta".' });
   }
 
   if (name === 'resultado') {
@@ -392,43 +407,143 @@ finRouter.get('/reports/:name', requireAuth('fin.view'), h(async (req, res) => {
       [{ key: 'mes', label: 'Mês' }, { key: 'recebido', label: 'Receitas recebidas' }, { key: 'pago', label: 'Despesas pagas' }, { key: 'saldo', label: 'Resultado realizado' },
        { key: 'receitaPrevista', label: 'Receitas previstas' }, { key: 'despesaPrevista', label: 'Despesas previstas' }, { key: 'saldoPrevisto', label: 'Resultado previsto' }],
       s.monthly.map((m) => ({ mes: m.mes.split('-').reverse().join('/'), recebido: brl(m.recebido), pago: brl(m.pago), saldo: brl(m.saldo), receitaPrevista: brl(m.receitaPrevista), despesaPrevista: brl(m.despesaPrevista), saldoPrevisto: brl(m.receitaPrevista - m.despesaPrevista) })),
-      { note: 'Previsto = por data de vencimento (exceto cancelados). Realizado = por data efetiva da baixa.' });
+      { note: `Previsto = por data de vencimento (exceto cancelados). Realizado = por data efetiva da baixa.${qstr(req, 'accountId') || qstr(req, 'costCenterId') || qstr(req, 'partyId') ? ' Este relatório considera todas as contas, centros de custo e cadastros (os filtros não se aplicam).' : ''}` });
   }
 
   if (name === 'despesas-categoria' || name === 'receitas-categoria') {
     const type = name === 'despesas-categoria' ? 'despesa' : 'receita';
+    const base = cat ? [from, to, type, Number(cat)] : [from, to, type];
+    const ex = extraConds(req, base.length + 1);
     const rows = (await pool.query(
       `SELECT c.name AS categoria,
               COALESCE(sum(t.amount) FILTER (WHERE t.status<>'cancelada'),0) AS previsto,
               COALESCE(sum(t.amount) FILTER (WHERE t.status='realizada'),0) AS realizado
-         FROM financial_categories c LEFT JOIN financial_transactions t ON t.category_id=c.id AND t.due_date BETWEEN $1 AND $2
+         FROM financial_categories c LEFT JOIN financial_transactions t ON t.category_id=c.id AND t.due_date BETWEEN $1 AND $2${ex.sql}
         WHERE c.type=$3 ${cat ? 'AND c.id = $4' : ''} GROUP BY c.name HAVING COALESCE(sum(t.amount) FILTER (WHERE t.status<>'cancelada'),0) > 0 ORDER BY previsto DESC`,
-      cat ? [from, to, type, Number(cat)] : [from, to, type])).rows;
+      [...base, ...ex.params])).rows;
     const tot = rows.reduce((a, r) => a + Number(r.previsto), 0) || 1;
     return out([{ key: 'categoria', label: 'Categoria' }, { key: 'previsto', label: 'Total no período (R$)' }, { key: 'realizado', label: type === 'despesa' ? 'Pago (R$)' : 'Recebido (R$)' }, { key: 'pct', label: '% do total' }],
       rows.map((r) => ({ categoria: r.categoria, previsto: brl(r.previsto), realizado: brl(r.realizado), pct: `${((Number(r.previsto) / tot) * 100).toFixed(1).replace('.', ',')}%` })));
   }
 
   if (name === 'centros-custo') {
+    const ex = extraConds(req, 3);
     const rows = (await pool.query(
       `SELECT COALESCE(cc.name, 'Sem centro de custo') AS centro,
               COALESCE(sum(t.amount) FILTER (WHERE t.type='receita'),0) AS receitas,
               COALESCE(sum(t.amount) FILTER (WHERE t.type='despesa'),0) AS despesas
          FROM financial_transactions t LEFT JOIN cost_centers cc ON cc.id = t.cost_center_id
-        WHERE t.status <> 'cancelada' AND t.due_date BETWEEN $1 AND $2 GROUP BY 1 ORDER BY despesas DESC, receitas DESC`, [from, to])).rows;
+        WHERE t.status <> 'cancelada' AND t.due_date BETWEEN $1 AND $2${ex.sql} GROUP BY 1 ORDER BY despesas DESC, receitas DESC`, [from, to, ...ex.params])).rows;
     return out([{ key: 'centro', label: 'Centro de custo' }, { key: 'receitas', label: 'Receitas (R$)' }, { key: 'despesas', label: 'Despesas (R$)' }, { key: 'resultado', label: 'Resultado (R$)' }],
       rows.map((r) => ({ centro: r.centro, receitas: brl(r.receitas), despesas: brl(r.despesas), resultado: brl(Number(r.receitas) - Number(r.despesas)) })),
       { note: 'Por data de vencimento, exceto cancelados.' });
   }
 
+  if (name === 'fluxo-projetado') {
+    const days = [30, 60, 90].includes(Number(qstr(req, 'days'))) ? Number(qstr(req, 'days')) : 30;
+    const f = await computeCashflow(days, qstr(req, 'accountId') ? Number(qstr(req, 'accountId')) : null);
+    const rows = [{ dia: 'Saldo atual', in: '', out: '', saldo: brl(f.opening) },
+      ...f.series.filter((x) => x.in || x.out).map((x) => ({ dia: dmy(x.date), in: x.in ? brl(x.in) : '', out: x.out ? brl(x.out) : '', saldo: brl(x.balance) }))];
+    return sendReport(req, res, `financeiro-${name}`,
+      [{ key: 'dia', label: 'Data' }, { key: 'in', label: 'A receber (R$)' }, { key: 'out', label: 'A pagar (R$)' }, { key: 'saldo', label: 'Saldo projetado (R$)' }], rows,
+      { title: `${title} — ${days} dias`, period: { from: f.from, to: f.to }, totalLabel: `Saldo projetado em ${dmy(f.to)}`, total: brl(f.closing),
+        note: `Parte do saldo atual das contas${f.accountId ? ' (conta selecionada)' : ' ativas'} e soma contas a receber e a pagar pelo vencimento. Contas já vencidas entram no primeiro dia. ${f.negative ? `Atenção: o saldo fica negativo (mínimo de R$ ${brl(f.lowest.balance)} em ${dmy(f.lowest.date)}).` : ''}` });
+  }
+
+  if (name === 'saldo-contas') {
+    const rows = (await pool.query(
+      `SELECT a.name, a.kind, a.active, a.initial_balance AS inicial,
+              COALESCE((SELECT sum(t.amount) FROM financial_transactions t WHERE t.type='receita' AND t.status='realizada' AND ${EFF_ACCOUNT} = a.id AND t.settled_date BETWEEN $1 AND $2),0) AS entradas,
+              COALESCE((SELECT sum(t.amount) FROM financial_transactions t WHERE t.type='despesa' AND t.status='realizada' AND ${EFF_ACCOUNT} = a.id AND t.settled_date BETWEEN $1 AND $2),0) AS saidas,
+              COALESCE((SELECT sum(x.amount) FROM bank_transfers x WHERE x.to_account_id = a.id AND x.transfer_date BETWEEN $1 AND $2),0)
+                - COALESCE((SELECT sum(x.amount) FROM bank_transfers x WHERE x.from_account_id = a.id AND x.transfer_date BETWEEN $1 AND $2),0) AS transf,
+              ${BALANCE} AS saldo
+         FROM bank_accounts a ${qstr(req, 'accountId') ? 'WHERE a.id = $3' : ''} ORDER BY a.is_default DESC, lower(a.name)`,
+      qstr(req, 'accountId') ? [from, to, Number(qstr(req, 'accountId'))] : [from, to])).rows;
+    const tot = rows.filter((r) => r.active).reduce((a, r) => a + Number(r.saldo), 0);
+    const KIND: Record<string, string> = { corrente: 'Conta corrente', poupanca: 'Poupança', caixa: 'Caixa', cartao: 'Cartão', outra: 'Outra' };
+    return out([{ key: 'name', label: 'Conta' }, { key: 'kind', label: 'Tipo' }, { key: 'inicial', label: 'Saldo inicial (R$)' }, { key: 'entradas', label: 'Entradas no período (R$)' },
+        { key: 'saidas', label: 'Saídas no período (R$)' }, { key: 'transf', label: 'Transferências no período (R$)' }, { key: 'saldo', label: 'Saldo atual (R$)' }],
+      rows.map((r) => ({ name: r.active ? r.name : `${r.name} (inativa)`, kind: KIND[r.kind] ?? r.kind, inicial: brl(r.inicial), entradas: brl(r.entradas), saidas: brl(r.saidas), transf: brl(r.transf), saldo: brl(r.saldo) })),
+      { totalLabel: 'Saldo total (contas ativas)', total: brl(tot), note: 'Entradas, saídas e transferências referem-se ao período; o saldo atual considera todo o histórico da conta.' });
+  }
+
+  if (name === 'extrato-conta') {
+    const accId = Number(qstr(req, 'accountId'));
+    if (!accId) throw new HttpError(422, 'Selecione a conta para gerar o extrato.');
+    const acc = (await pool.query('SELECT id, name, initial_balance FROM bank_accounts WHERE id=$1', [accId])).rows[0];
+    if (!acc) throw new HttpError(404, 'Conta não encontrada');
+    const opening = Number((await pool.query(
+      `SELECT $2::numeric
+         + COALESCE((SELECT sum(CASE WHEN t.type='receita' THEN t.amount ELSE -t.amount END) FROM financial_transactions t WHERE t.status='realizada' AND ${EFF_ACCOUNT} = $1 AND t.settled_date < $3),0)
+         + COALESCE((SELECT sum(x.amount) FROM bank_transfers x WHERE x.to_account_id = $1 AND x.transfer_date < $3),0)
+         - COALESCE((SELECT sum(x.amount) FROM bank_transfers x WHERE x.from_account_id = $1 AND x.transfer_date < $3),0) AS s`, [accId, acc.initial_balance, from])).rows[0].s);
+    const mv = (await pool.query(
+      `SELECT t.settled_date AS d, t.description AS descr, 'Lançamento' AS origem, CASE WHEN t.type='receita' THEN t.amount ELSE 0 END AS entrada, CASE WHEN t.type='despesa' THEN t.amount ELSE 0 END AS saida, t.created_at AS ord
+         FROM financial_transactions t WHERE t.status='realizada' AND ${EFF_ACCOUNT} = $1 AND t.settled_date BETWEEN $2 AND $3
+       UNION ALL
+       SELECT x.transfer_date, CASE WHEN x.to_account_id = $1 THEN 'Transferência recebida de ' || f.name ELSE 'Transferência enviada para ' || tt.name END, 'Transferência',
+              CASE WHEN x.to_account_id = $1 THEN x.amount ELSE 0 END, CASE WHEN x.from_account_id = $1 THEN x.amount ELSE 0 END, x.created_at
+         FROM bank_transfers x JOIN bank_accounts f ON f.id = x.from_account_id JOIN bank_accounts tt ON tt.id = x.to_account_id
+        WHERE (x.from_account_id = $1 OR x.to_account_id = $1) AND x.transfer_date BETWEEN $2 AND $3
+       ORDER BY 1, 6 LIMIT 5000`, [accId, from, to])).rows;
+    let bal = opening;
+    const rows: Record<string, unknown>[] = [{ data: dmy(from), descr: 'Saldo anterior', origem: '', entrada: '', saida: '', saldo: brl(opening) }];
+    for (const m of mv) { bal += Number(m.entrada) - Number(m.saida); rows.push({ data: dmy(m.d), descr: m.descr, origem: m.origem, entrada: Number(m.entrada) ? brl(m.entrada) : '', saida: Number(m.saida) ? brl(m.saida) : '', saldo: brl(bal) }); }
+    return out([{ key: 'data', label: 'Data' }, { key: 'descr', label: 'Descrição' }, { key: 'origem', label: 'Origem' }, { key: 'entrada', label: 'Entrada (R$)' }, { key: 'saida', label: 'Saída (R$)' }, { key: 'saldo', label: 'Saldo (R$)' }],
+      rows, { title: `${title}: ${acc.name}`, totalLabel: `Saldo em ${dmy(to)}`, total: brl(bal) });
+  }
+
+  if (name === 'transferencias') {
+    const w = new Where().add('x.transfer_date BETWEEN ? AND ?', from, to);
+    const acc = qstr(req, 'accountId'); if (acc) w.add('(x.from_account_id = ? OR x.to_account_id = ?)', Number(acc), Number(acc));
+    const rows = (await pool.query(
+      `SELECT x.transfer_date AS d, f.name AS origem, tt.name AS destino, x.amount, x.description AS descr, x.created_by_name AS por
+         FROM bank_transfers x JOIN bank_accounts f ON f.id = x.from_account_id JOIN bank_accounts tt ON tt.id = x.to_account_id ${w.sql} ORDER BY x.transfer_date, x.id LIMIT 5000`, w.params)).rows;
+    return out([{ key: 'data', label: 'Data' }, { key: 'origem', label: 'Conta de origem' }, { key: 'destino', label: 'Conta de destino' }, { key: 'valor', label: 'Valor (R$)' }, { key: 'descr', label: 'Descrição' }, { key: 'por', label: 'Registrada por' }],
+      rows.map((r) => ({ data: dmy(r.d), origem: r.origem, destino: r.destino, valor: brl(r.amount), descr: r.descr, por: r.por })),
+      { totalLabel: 'Total transferido', total: brl(rows.reduce((a, r) => a + Number(r.amount), 0)), note: 'Transferências não alteram o saldo total, apenas movem valores entre contas.' });
+  }
+
+  if (name === 'conciliacao') {
+    const w = new Where().add('l.posted_date BETWEEN ? AND ?', from, to);
+    const acc = qstr(req, 'accountId'); if (acc) w.add('l.account_id = ?', Number(acc));
+    const ls = qstr(req, 'lineStatus'); if (ls && ['pendente', 'conciliado', 'ignorado'].includes(ls)) w.add('l.status = ?', ls);
+    const rows = (await pool.query(
+      `SELECT l.posted_date AS d, a.name AS conta, l.memo, l.amount, l.status, t.description AS lanc
+         FROM bank_statement_lines l JOIN bank_accounts a ON a.id = l.account_id LEFT JOIN financial_transactions t ON t.id = l.transaction_id ${w.sql} ORDER BY l.posted_date, l.id LIMIT 5000`, w.params)).rows;
+    const LS: Record<string, string> = { pendente: 'Pendente', conciliado: 'Conciliada', ignorado: 'Ignorada' };
+    const pend = rows.filter((r) => r.status === 'pendente').length;
+    return out([{ key: 'data', label: 'Data' }, { key: 'conta', label: 'Conta' }, { key: 'memo', label: 'Descrição no extrato' }, { key: 'valor', label: 'Valor (R$)' }, { key: 'situacao', label: 'Situação' }, { key: 'lanc', label: 'Lançamento vinculado' }],
+      rows.map((r) => ({ data: dmy(r.d), conta: r.conta, memo: r.memo, valor: brl(r.amount), situacao: LS[r.status], lanc: r.lanc })),
+      { totalLabel: 'Linhas pendentes', total: String(pend) });
+  }
+
+  if (name === 'por-cadastro') {
+    const ex = extraConds(req, 3);
+    const rows = (await pool.query(
+      `SELECT COALESCE(p.name, '(sem cadastro: texto livre ou vazio)') AS nome,
+              COALESCE(sum(t.amount) FILTER (WHERE t.type='receita'),0) AS receitas, COALESCE(sum(t.amount) FILTER (WHERE t.type='receita' AND t.status='realizada'),0) AS recebido,
+              COALESCE(sum(t.amount) FILTER (WHERE t.type='despesa'),0) AS despesas, COALESCE(sum(t.amount) FILTER (WHERE t.type='despesa' AND t.status='realizada'),0) AS pago
+         FROM financial_transactions t LEFT JOIN parties p ON p.id = t.party_id
+        WHERE t.status <> 'cancelada' AND t.due_date BETWEEN $1 AND $2${ex.sql} GROUP BY 1 ORDER BY (count(p.id) = 0), nome`, [from, to, ...ex.params])).rows;
+    return out([{ key: 'nome', label: 'Cliente / fornecedor' }, { key: 'receitas', label: 'Receitas previstas (R$)' }, { key: 'recebido', label: 'Recebido (R$)' }, { key: 'despesas', label: 'Despesas previstas (R$)' }, { key: 'pago', label: 'Pago (R$)' }, { key: 'resultado', label: 'Resultado previsto (R$)' }],
+      rows.map((r) => ({ nome: r.nome, receitas: brl(r.receitas), recebido: brl(r.recebido), despesas: brl(r.despesas), pago: brl(r.pago), resultado: brl(Number(r.receitas) - Number(r.despesas)) })),
+      { note: 'Por data de vencimento, exceto cancelados. Lançamentos antigos ou com texto livre aparecem em "sem cadastro".' });
+  }
+
   // historico de movimentações (baixas)
+  const hbase = cat ? [from, to, Number(cat)] : [from, to];
+  const hex = extraConds(req, hbase.length + 1);
   const rows = (await pool.query(
     `SELECT to_char(p.effective_date,'DD/MM/YYYY') AS data, t.type, t.description, c.name AS category, p.amount, p.method, p.user_name AS "userName",
+            COALESCE(ba.name, (SELECT name FROM bank_accounts WHERE is_default)) AS account, cc.name AS "costCenter",
             to_char(p.created_at AT TIME ZONE 'America/Sao_Paulo','DD/MM/YYYY HH24:MI') AS registrado
        FROM payment_records p JOIN financial_transactions t ON t.id=p.transaction_id JOIN financial_categories c ON c.id=t.category_id
-      WHERE p.effective_date BETWEEN $1 AND $2 ${cat ? 'AND t.category_id = $3' : ''} ORDER BY p.effective_date DESC, p.id DESC LIMIT 5000`,
-    cat ? [from, to, Number(cat)] : [from, to])).rows;
-  out([{ key: 'data', label: 'Data efetiva' }, { key: 'tipo', label: 'Tipo' }, { key: 'description', label: 'Descrição' }, { key: 'category', label: 'Categoria' }, { key: 'valor', label: 'Valor (R$)' },
+       LEFT JOIN bank_accounts ba ON ba.id = t.account_id LEFT JOIN cost_centers cc ON cc.id = t.cost_center_id
+      WHERE p.effective_date BETWEEN $1 AND $2 ${cat ? 'AND t.category_id = $3' : ''}${hex.sql} ORDER BY p.effective_date DESC, p.id DESC LIMIT 5000`,
+    [...hbase, ...hex.params])).rows;
+  out([{ key: 'data', label: 'Data efetiva' }, { key: 'tipo', label: 'Tipo' }, { key: 'description', label: 'Descrição' }, { key: 'category', label: 'Categoria' }, { key: 'costCenter', label: 'Centro de custo' }, { key: 'account', label: 'Conta' }, { key: 'valor', label: 'Valor (R$)' },
        { key: 'method', label: 'Forma' }, { key: 'userName', label: 'Responsável' }, { key: 'registrado', label: 'Registrado em' }],
     rows.map((r) => ({ ...r, tipo: r.type === 'receita' ? 'Recebimento' : 'Pagamento', valor: brl(r.amount) })));
 }));

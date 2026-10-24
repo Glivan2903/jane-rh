@@ -692,3 +692,62 @@ test('conciliação OFX: importar, sugerir, conciliar com baixa, criar lançamen
   const b = (await fin.get('/api/fin/accounts')).body.accounts.find((a: any) => a.id === acc);
   assert.equal(Number(b.balance), -19.9);
 });
+
+test('relatórios financeiros: conta, centro de custo, saldo, extrato, transferências, conciliação e projeção', async () => {
+  const admin = await login('admin@t.local'), fin = await login('fin@t.local'), est = await login('est@t.local');
+  const cat = (await admin.post('/api/fin/categories', { name: 'Receita Rel', type: 'receita' })).body.id;
+  const catD = (await admin.post('/api/fin/categories', { name: 'Despesa Rel', type: 'despesa' })).body.id;
+  const a1 = (await fin.post('/api/fin/accounts', { name: 'Rel A', initialBalance: 100 })).body.id;
+  const a2 = (await fin.post('/api/fin/accounts', { name: 'Rel B' })).body.id;
+  const cc = (await fin.post('/api/fin/cost-centers', { name: 'Rel CC' })).body.id;
+  const cli = (await fin.post('/api/cad/parties', { name: 'Cliente Rel', isCustomer: true })).body.id;
+  const mk = (b: object) => fin.post('/api/fin/transactions', { competenceDate: '2026-04-10', dueDate: '2026-04-10', ...b });
+  assert.equal((await mk({ type: 'receita', description: 'Venda rel', categoryId: cat, amount: 500, accountId: a1, costCenterId: cc, partyId: cli, settledDate: '2026-04-10' })).status, 201);
+  assert.equal((await mk({ type: 'despesa', description: 'Compra rel', categoryId: catD, amount: 120, accountId: a1, settledDate: '2026-04-12', dueDate: '2026-04-12' })).status, 201);
+  assert.equal((await mk({ type: 'despesa', description: 'Outra conta', categoryId: catD, amount: 33, accountId: a2 })).status, 201);
+  assert.equal((await fin.post('/api/fin/transfers', { fromAccountId: a1, toAccountId: a2, amount: 50, date: '2026-04-15' })).status, 201);
+  const R = (n: string, q = '') => fin.get(`/api/fin/reports/${n}?from=2026-04-01&to=2026-04-30${q}`);
+
+  // listas ganham conta e centro de custo e aceitam os novos filtros
+  const rec = (await R('receitas')).body;
+  assert.ok(rec.columns.some((c: any) => c.key === 'account') && rec.columns.some((c: any) => c.key === 'costCenter'));
+  const row = rec.rows.find((r: any) => r.description === 'Venda rel');
+  assert.equal(row.account, 'Rel A'); assert.equal(row.costCenter, 'Rel CC');
+  assert.equal((await R('despesas', `&accountId=${a2}`)).body.rows.length, 1);
+  assert.equal((await R('receitas', `&costCenterId=${cc}`)).body.rows.length, 1);
+  assert.equal((await R('receitas', `&partyId=${cli}`)).body.rows.length, 1);
+  assert.equal((await R('despesas', `&costCenterId=${cc}`)).body.rows.length, 0);
+  assert.equal((await R('despesas-categoria', `&accountId=${a2}`)).body.rows.find((r: any) => r.categoria === 'Despesa Rel').previsto, '33,00');
+  assert.ok((await R('historico', `&accountId=${a1}`)).body.rows.every((r: any) => r.account === 'Rel A'));
+  assert.ok((await R('fluxo-caixa', `&accountId=${a1}`)).body.rows.length >= 2);
+
+  // saldo por conta fecha com o cadastro de contas
+  const sc = (await R('saldo-contas')).body;
+  const ra = sc.rows.find((r: any) => r.name === 'Rel A');
+  assert.equal(ra.inicial, '100,00'); assert.equal(ra.entradas, '500,00'); assert.equal(ra.saidas, '120,00'); assert.equal(ra.transf, '-50,00'); assert.equal(ra.saldo, '430,00');
+  const accList = (await fin.get('/api/fin/accounts')).body;
+  assert.equal(sc.total, Number(accList.total).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+  // extrato: exige conta e o saldo corrido termina no saldo da conta
+  assert.equal((await R('extrato-conta')).status, 422);
+  const ex = (await R('extrato-conta', `&accountId=${a1}`)).body;
+  assert.equal(ex.rows[0].descr, 'Saldo anterior'); assert.equal(ex.rows[0].saldo, '100,00');
+  assert.equal(ex.rows.at(-1).saldo, '430,00'); assert.equal(ex.total, '430,00');
+  assert.ok(ex.rows.some((r: any) => String(r.descr).startsWith('Transferência enviada para Rel B')));
+  const exLate = (await fin.get(`/api/fin/reports/extrato-conta?from=2026-04-11&to=2026-04-30&accountId=${a1}`)).body;
+  assert.equal(exLate.rows[0].saldo, '600,00');                                  // 100 + 500 antes de 11/04
+
+  // transferências, conciliação e projeção
+  const tr = (await R('transferencias', `&accountId=${a2}`)).body;
+  assert.equal(tr.rows.length, 1); assert.equal(tr.total, '50,00');
+  assert.ok(Array.isArray((await R('conciliacao')).body.rows));
+  const proj = (await fin.get('/api/fin/reports/fluxo-projetado?days=60')).body;
+  assert.equal(proj.rows[0].dia, 'Saldo atual'); assert.ok(proj.title.includes('60 dias'));
+  const pc = (await R('por-cadastro')).body;
+  assert.ok(pc.rows.some((r: any) => r.nome === 'Cliente Rel' && r.receitas === '500,00'));
+  assert.ok(pc.rows.some((r: any) => String(r.nome).startsWith('(sem cadastro')));
+
+  // lista de relatórios e permissão
+  assert.ok(Object.keys((await fin.get('/api/fin/reports')).body).includes('saldo-contas'));
+  assert.equal((await est.get('/api/fin/reports/saldo-contas')).status, 403);
+});
