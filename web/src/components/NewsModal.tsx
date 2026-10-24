@@ -1,19 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { SLIDES, isNewsHidden, setHideNews } from '../lib/news';
 
-export function NewsModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+export function NewsModal({ userId, onClose, delay = 0 }: { userId: string; onClose: () => void; delay?: number }) {
   const [i, setI] = useState(0); const [hide, setHide] = useState(() => isNewsHidden(userId));
+  // Entrada suave: o fundo escurece primeiro e, logo depois, o cartão sobe e aparece. A saída faz o caminho inverso.
+  const [shown, setShown] = useState(false); const timer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => { const t = setTimeout(() => setShown(true), delay || 30); return () => clearTimeout(t); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   const s = SLIDES[i]; const last = i === SLIDES.length - 1; const Icon = s.icon;
-  const close = () => { setHideNews(userId, hide); onClose(); };
+  const close = () => { setHideNews(userId, hide); setShown(false); clearTimeout(timer.current); timer.current = setTimeout(onClose, 300); };
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); else if (e.key === 'ArrowRight') setI((n) => Math.min(n + 1, SLIDES.length - 1)); else if (e.key === 'ArrowLeft') setI((n) => Math.max(n - 1, 0)); };
     document.addEventListener('keydown', k); document.body.style.overflow = 'hidden';
     return () => { document.removeEventListener('keydown', k); document.body.style.overflow = ''; };
   });
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
-      <div role="dialog" aria-modal="true" aria-label="Novidades do Gentis" className="flex max-h-[94vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-card shadow-2xl sm:rounded-2xl">
+    <div className={`fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-0 backdrop-blur-[2px] transition-opacity duration-500 ease-out motion-reduce:transition-none sm:items-center sm:p-4 ${shown ? 'opacity-100' : 'pointer-events-none opacity-0'}`} onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <div role="dialog" aria-modal="true" aria-label="Novidades do Gentis" className={`flex max-h-[94vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-card shadow-2xl transition-all duration-500 ease-out motion-reduce:transition-none sm:rounded-2xl ${shown ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-6 scale-[0.97] opacity-0'}`}>
         <div className="hero relative shrink-0 overflow-hidden bg-[#0b1f2e] px-5 pb-5 pt-6 text-white sm:px-7">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_12%_0%,rgba(20,184,166,.30),transparent_55%),radial-gradient(ellipse_at_96%_100%,rgba(255,122,89,.20),transparent_50%)]" />
           <Icon aria-hidden strokeWidth={1.2} className="pointer-events-none absolute -right-2 top-1/2 h-28 w-28 -translate-y-1/2 text-white/[0.09]" />
