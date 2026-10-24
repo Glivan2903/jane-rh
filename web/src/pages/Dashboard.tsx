@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Boxes, CheckCircle2, Clock, DollarSign, PackageX, Scale, TrendingDown, TrendingUp, UserMinus, UserPlus, Users, Wallet, Activity } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Boxes, CheckCircle2, Clock, DollarSign, PackageX, Scale, TrendingDown, TrendingUp, UserMinus, UserPlus, Users, Wallet } from 'lucide-react';
 import { ErrorBox, PageHeader, Skeleton, StatCard, Badge, useReveal, Empty, Tabs } from '../components/ui';
 import { UpcomingBills } from '../components/UpcomingBills';
 import { PeriodPicker, type Period } from '../components/PeriodPicker';
 import { ChartCard, C, CountBars, Donut, HBars, MoneyBars, MoneyLine } from '../components/charts';
 import { useAuth } from '../lib/app';
 import { useFetch } from '../lib/hooks';
-import { brl, dmyTime, num } from '../lib/format';
+import { brl, num } from '../lib/format';
 import { presetRange } from '../lib/period';
 import type { FinSummary } from './fin/Overview';
 
@@ -16,10 +16,8 @@ interface Dash {
   financeiro?: FinSummary;
   estoque?: { produtos: number; itensEmEstoque: number; valorEstimado: number; abaixoMinimo: number; semEstoque: number; entradas: { qtd: number; total: number }; saidas: { qtd: number; total: number };
     recentMovements: { id: number; type: string; quantity: number; reason: string; date: string; code: string; name: string }[]; topMoved: { code: string; name: string; movimentos: number; quantidade: number }[]; alerts: { id: string; code: string; name: string; quantity: number; minStock: number; status: string }[] };
-  atividades: { id: number; at: string; userName: string | null; module: string; summary: string }[];
 }
 const int = (n: number) => String(Math.round(n));
-const MOD_TONE = { rh: 'info', financeiro: 'success', estoque: 'warning', config: 'neutral' } as const;
 
 const Title = ({ icon: I, children }: { icon: typeof Users; children: string }) => <h2 className="mb-2 mt-2 flex items-center gap-2 font-display text-base font-bold"><I className="h-4 w-4 text-primary" />{children}</h2>;
 
@@ -134,15 +132,6 @@ export default function Dashboard() {
             </div>
           </>)}
 
-          {aba === 'geral' && (<>
-          <Title icon={Activity}>Atividades recentes</Title>
-          <section data-reveal className="card p-2">
-            {data.atividades.length === 0 ? <Empty title="Nenhuma atividade registrada ainda" hint="As operações realizadas no sistema aparecerão aqui." /> : (
-              <ul className="divide-y">{data.atividades.map((a) => (
-                <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
-                  <Badge tone={MOD_TONE[a.module as keyof typeof MOD_TONE] ?? 'neutral'}>{a.module}</Badge><span className="min-w-0 flex-1">{a.summary}</span>
-                  <span className="text-xs text-muted-foreground">{a.userName ?? 'sistema'} · {dmyTime(a.at)}</span></li>))}</ul>)}
-          </section></>)}
           {!rh && !fin && !est && <Empty title="Seu perfil não tem acesso aos indicadores" hint="Peça a um administrador para ajustar suas permissões." action={<Link to="/perfil/senha" className="btn-outline">Alterar senha</Link>} />}
         </div>
       )}

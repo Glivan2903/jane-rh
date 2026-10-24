@@ -242,10 +242,11 @@ test('Estoque: produto, entrada/saída, custo médio, saldo negativo, idempotên
 test('Dashboard consolida módulos conforme permissões', async () => {
   const admin = await login('admin@t.local'), fin = await login('fin@t.local');
   const d = (await admin.get('/api/dashboard?period=ano')).body;
-  assert.ok(d.rh && d.financeiro && d.estoque && d.atividades.length > 0);
+  assert.ok(d.rh && d.financeiro && d.estoque);
+  assert.equal(d.atividades, undefined);                    // atividades recentes só na auditoria (Configurações), não no dashboard
   const f = (await fin.get('/api/dashboard')).body;
   assert.ok(f.financeiro && !f.rh && !f.estoque);
-  assert.ok(f.atividades.every((a: any) => a.module === 'financeiro'));
+  assert.equal(f.atividades, undefined);
   assert.equal((await admin.get('/api/dashboard?period=custom&from=2026-05-01&to=2026-04-01')).status, 422);
 });
 

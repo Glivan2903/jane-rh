@@ -6,7 +6,7 @@ export interface AuditInput {
   module: string;            // auth, rh, financeiro, estoque, config
   entity?: string;
   entityId?: string | number | null;
-  summary: string;           // texto legível (aparece nas atividades recentes)
+  summary: string;           // texto legível (aparece na auditoria)
   result?: 'sucesso' | 'falha';
   details?: Record<string, unknown>;
 }
