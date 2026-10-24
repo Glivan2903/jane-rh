@@ -1,45 +1,99 @@
-/** Funcionalidades já prontas em homologação e ainda não liberadas em produção. Cada uma abre uma tela "Em breve". */
-export interface SoonFeature { slug: string; label: string; headline: string; description: string; bullets: string[] }
+/** Funcionalidades já desenvolvidas em homologação e ainda não liberadas neste ambiente. Cada uma abre uma tela "Em breve". */
+export type SoonIcon =
+  | 'bot' | 'message' | 'chart' | 'wallet' | 'boxes' | 'users' | 'history' | 'shield' | 'cake' | 'award' | 'calendar' | 'party' | 'compass' | 'file' | 'list' | 'bell' | 'upload'
+  | 'alert' | 'line' | 'clock' | 'landmark' | 'scale' | 'transfer' | 'tag' | 'link' | 'check' | 'plus' | 'undo' | 'layers' | 'filter' | 'report' | 'id' | 'merge';
+
+export interface SoonItem { icon: SoonIcon; title: string; text: string }
+export interface SoonFeature { slug: string; label: string; icon: SoonIcon; headline: string; description: string; items: SoonItem[] }
 
 export const SOON: Record<string, SoonFeature> = {
   assistente: {
-    slug: 'assistente', label: 'Assistente de IA', headline: 'Pergunte ao sistema, em português',
-    description: 'Faça perguntas como "quanto gastei este mês?" ou "quais produtos estão acabando?" e receba a resposta na hora, com números, tabelas e gráficos.',
-    bullets: ['Consulta financeiro, estoque e pessoal, só no que o administrador liberar para cada usuário.', 'CPF e documentos dos funcionários nunca são enviados ao modelo de IA.', 'Cada pessoa vê apenas o próprio histórico de conversas.', 'Apenas consulta: não altera nenhum dado do sistema.'],
+    slug: 'assistente', label: 'Assistente de IA', icon: 'bot', headline: 'Pergunte ao sistema, em português',
+    description: 'Faça perguntas do dia a dia sobre financeiro, estoque e pessoal e receba a resposta na hora, direto no sistema.',
+    items: [
+      { icon: 'message', title: 'Converse do seu jeito', text: 'Pergunte "quanto gastei este mês?" ou "quais produtos estão acabando?" sem procurar em telas e relatórios.' },
+      { icon: 'chart', title: 'Tabelas e gráficos', text: 'As respostas podem vir em tabelas e gráficos, com exportação para CSV.' },
+      { icon: 'wallet', title: 'Financeiro', text: 'Resultado do mês, contas vencidas, saldo das contas e projeção do caixa.' },
+      { icon: 'boxes', title: 'Estoque', text: 'Produtos abaixo do mínimo, valor do estoque e movimentações.' },
+      { icon: 'users', title: 'Pessoal', text: 'Funcionários por departamento, aniversariantes e tempo de casa.' },
+      { icon: 'history', title: 'Histórico de conversas', text: 'Volte a qualquer conversa anterior e continue de onde parou.' },
+      { icon: 'shield', title: 'Acesso definido pelo administrador', text: 'O administrador escolhe quem usa o assistente e quais áreas cada usuário pode consultar.' },
+    ],
   },
   'rh-celebracoes': {
-    slug: 'rh-celebracoes', label: 'Aniversários e tempo de casa', headline: 'Quem faz aniversário e quem completa tempo de empresa',
-    description: 'Acompanhe os aniversariantes e os aniversários de admissão dos funcionários ativos, sem precisar procurar na ficha de cada um.',
-    bullets: ['Próximos 30 dias, inclusive na virada do mês e do ano.', 'Destaque para quem faz aniversário hoje.', 'Calendário do mês com navegação mês a mês.'],
+    slug: 'rh-celebracoes', label: 'Aniversários e tempo de casa', icon: 'cake', headline: 'Quem faz aniversário e quem completa tempo de empresa',
+    description: 'Acompanhe os aniversários e os aniversários de admissão dos funcionários ativos em uma única tela.',
+    items: [
+      { icon: 'cake', title: 'Aniversariantes do mês', text: 'Lista por dia, com a idade que cada pessoa completa.' },
+      { icon: 'award', title: 'Tempo de casa', text: 'Quem completa 1, 2, 5, 10 anos de empresa, com destaque para as datas redondas.' },
+      { icon: 'calendar', title: 'Próximos 30 dias', text: 'Visão do que vem pela frente, inclusive na virada do mês e do ano.' },
+      { icon: 'party', title: 'Destaque de hoje', text: 'Quem comemora hoje aparece em evidência no topo da tela.' },
+      { icon: 'compass', title: 'Navegação mês a mês', text: 'Avance e volte pelos meses para planejar homenagens e comunicados.' },
+    ],
   },
   'rh-documentos': {
-    slug: 'rh-documentos', label: 'Documentos dos funcionários', headline: 'Documentos na ficha e aviso antes de vencer',
-    description: 'Guarde ASO, contratos, CNH e certificados na ficha do funcionário e saiba o que está vencido ou perto de vencer.',
-    bullets: ['Tipos de documento configuráveis, com o prazo de aviso de cada um.', 'Avisos de vencimento no sino do sistema.', 'Arquivos em PDF, PNG ou JPG guardados com segurança e com registro de cada download.', 'Acesso restrito a quem tiver a permissão de documentos do RH.'],
+    slug: 'rh-documentos', label: 'Documentos dos funcionários', icon: 'file', headline: 'Documentos na ficha e aviso antes de vencer',
+    description: 'Guarde ASO, contratos, CNH e certificados na ficha de cada funcionário e saiba o que está vencido ou perto de vencer.',
+    items: [
+      { icon: 'file', title: 'Documentos na ficha', text: 'Adicione, consulte, baixe e substitua documentos direto na ficha do funcionário.' },
+      { icon: 'list', title: 'Tipos configuráveis', text: 'Defina os tipos de documento, se têm validade e quantos dias antes avisar.' },
+      { icon: 'bell', title: 'Avisos de vencimento', text: 'Documentos vencidos e a vencer aparecem no sino do sistema.' },
+      { icon: 'upload', title: 'Envio de arquivos', text: 'Anexe arquivos em PDF, PNG ou JPG a cada documento.' },
+      { icon: 'alert', title: 'Painel de vencimentos', text: 'Uma lista com todos os documentos que exigem atenção, com filtros por situação e tipo.' },
+    ],
   },
   'fin-fluxo': {
-    slug: 'fin-fluxo', label: 'Fluxo de caixa projetado', headline: 'O saldo dos próximos 30, 60 e 90 dias',
-    description: 'Veja como o caixa deve ficar com base nas contas a pagar e a receber, e seja avisado antes de o saldo ficar negativo.',
-    bullets: ['Projeção por dia, partindo do saldo atual das contas.', 'Alerta quando o saldo previsto fica negativo.', 'Contas vencidas entram no primeiro dia da projeção.'],
+    slug: 'fin-fluxo', label: 'Fluxo de caixa projetado', icon: 'line', headline: 'O saldo dos próximos 30, 60 e 90 dias',
+    description: 'Veja como o caixa deve ficar com base nas contas a pagar e a receber e antecipe os períodos de aperto.',
+    items: [
+      { icon: 'line', title: 'Projeção do saldo', text: 'Gráfico do saldo dia a dia, partindo do saldo atual das contas.' },
+      { icon: 'calendar', title: '30, 60 ou 90 dias', text: 'Escolha o horizonte da projeção conforme a necessidade.' },
+      { icon: 'alert', title: 'Alerta de saldo negativo', text: 'Aviso com a data e o valor do menor saldo previsto.' },
+      { icon: 'clock', title: 'Movimentos por dia', text: 'Quanto entra e quanto sai em cada data de vencimento.' },
+      { icon: 'landmark', title: 'Por conta ou geral', text: 'Projete todas as contas juntas ou uma conta específica.' },
+    ],
   },
   'fin-contas': {
-    slug: 'fin-contas', label: 'Contas e transferências', headline: 'Saldo de cada conta bancária e do caixa',
-    description: 'Cadastre as contas da empresa, escolha de qual conta cada lançamento saiu e registre transferências entre elas.',
-    bullets: ['Saldo calculado automaticamente a partir dos lançamentos baixados.', 'Os lançamentos que já existem continuam valendo, na conta padrão.', 'Transferências entre contas sem alterar o total.'],
+    slug: 'fin-contas', label: 'Contas e transferências', icon: 'landmark', headline: 'Saldo de cada conta bancária e do caixa',
+    description: 'Cadastre as contas da empresa, acompanhe o saldo de cada uma e registre as transferências entre elas.',
+    items: [
+      { icon: 'landmark', title: 'Contas e caixas', text: 'Cadastre contas correntes, poupanças, caixas e cartões.' },
+      { icon: 'scale', title: 'Saldo de cada conta', text: 'Calculado automaticamente a partir dos lançamentos pagos e recebidos.' },
+      { icon: 'transfer', title: 'Transferências', text: 'Mova valores entre contas sem alterar o total da empresa.' },
+      { icon: 'tag', title: 'Conta em cada lançamento', text: 'Informe de qual conta cada pagamento saiu e em qual cada recebimento entrou.' },
+      { icon: 'report', title: 'Extrato da conta', text: 'Relatório com a movimentação e o saldo corrido de cada conta.' },
+    ],
   },
   'fin-conciliacao': {
-    slug: 'fin-conciliacao', label: 'Conciliação bancária', headline: 'Confira o extrato do banco com o sistema',
-    description: 'Importe o extrato do banco (arquivo OFX) e o sistema sugere a qual lançamento cada linha corresponde.',
-    bullets: ['Importação sem duplicar linhas se o mesmo arquivo for enviado de novo.', 'Concilia e já registra a baixa do pagamento ou do recebimento.', 'Cria o lançamento quando a linha do banco ainda não existe no sistema.'],
+    slug: 'fin-conciliacao', label: 'Conciliação bancária', icon: 'link', headline: 'Confira o extrato do banco com o sistema',
+    description: 'Importe o extrato do banco e confirme, linha a linha, o que já está lançado no sistema.',
+    items: [
+      { icon: 'upload', title: 'Importação do extrato', text: 'Envie o arquivo OFX do seu banco. Enviar o mesmo arquivo de novo não duplica linhas.' },
+      { icon: 'link', title: 'Sugestões automáticas', text: 'O sistema aponta o lançamento que corresponde a cada linha, por valor e data.' },
+      { icon: 'check', title: 'Concilia e dá baixa', text: 'Ao conciliar uma conta pendente, o pagamento ou recebimento já é registrado.' },
+      { icon: 'plus', title: 'Cria o lançamento', text: 'Quando a linha do banco ainda não existe no sistema, crie o lançamento na hora.' },
+      { icon: 'undo', title: 'Desfazer e ignorar', text: 'Ignore linhas que não interessam ou desfaça uma conciliação feita por engano.' },
+    ],
   },
   'fin-centros': {
-    slug: 'fin-centros', label: 'Centros de custo', headline: 'Resultado por área, projeto ou unidade',
+    slug: 'fin-centros', label: 'Centros de custo', icon: 'layers', headline: 'Resultado por área, projeto ou unidade',
     description: 'Classifique receitas e despesas por centro de custo e veja quanto cada área gasta e gera.',
-    bullets: ['Escolha do centro de custo em cada lançamento.', 'Filtro nas listas e relatório de resultado por centro de custo.'],
+    items: [
+      { icon: 'layers', title: 'Centros de custo', text: 'Cadastre as áreas, projetos ou unidades da empresa.' },
+      { icon: 'tag', title: 'Classificação dos lançamentos', text: 'Escolha o centro de custo ao registrar cada receita ou despesa.' },
+      { icon: 'filter', title: 'Filtros nas listas', text: 'Veja somente os lançamentos de um centro de custo ou os que ainda não têm classificação.' },
+      { icon: 'report', title: 'Relatório de resultado', text: 'Receitas, despesas e resultado de cada centro de custo no período.' },
+    ],
   },
   'cad-parceiros': {
-    slug: 'cad-parceiros', label: 'Clientes e fornecedores', headline: 'Um só cadastro para financeiro e estoque',
-    description: 'Cadastre clientes e fornecedores uma vez e use nos lançamentos financeiros e nas movimentações de estoque.',
-    bullets: ['CPF ou CNPJ validado, sem cadastro duplicado.', 'Os fornecedores que você já usa no estoque são mantidos.', 'Escolha do cliente ou fornecedor direto no lançamento.'],
+    slug: 'cad-parceiros', label: 'Clientes e fornecedores', icon: 'users', headline: 'Um só cadastro para financeiro e estoque',
+    description: 'Cadastre clientes e fornecedores uma única vez e use nos lançamentos financeiros e nas movimentações de estoque.',
+    items: [
+      { icon: 'merge', title: 'Cadastro único', text: 'O mesmo cadastro vale para o financeiro e para o estoque.' },
+      { icon: 'id', title: 'CPF e CNPJ validados', text: 'Documento conferido, sem cadastros duplicados.' },
+      { icon: 'tag', title: 'Cliente, fornecedor ou ambos', text: 'Marque o tipo e filtre a lista por ele.' },
+      { icon: 'link', title: 'Escolha no lançamento', text: 'Selecione o cliente ou fornecedor direto ao registrar receitas e despesas.' },
+      { icon: 'report', title: 'Movimento por cadastro', text: 'Relatório do que foi comprado e vendido com cada cliente e fornecedor.' },
+    ],
   },
 };
