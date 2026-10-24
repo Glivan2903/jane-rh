@@ -8,7 +8,7 @@ import { config } from '../config.js';
 import { pool, tx } from '../db.js';
 import { audit } from '../audit.js';
 import { hasPerm, requireAuth } from '../auth.js';
-import { HttpError, Where, h, likeEsc, listParams, money, optDate, optStr, parse, qstr, reqDate, reqStr, sendReport, today } from '../util.js';
+import { HttpError, Where, h, likeEsc, listParams, money, optDate, optInt, optStr, parse, qstr, reqDate, reqStr, sendReport, today } from '../util.js';
 import { EFF, TODAY_SQL, financeSummary } from '../services/finance.js';
 import { getSettings } from '../services/settings.js';
 
@@ -72,6 +72,7 @@ const txSchema = z.object({
   description: reqStr(200, 'Informe a descrição'),
   categoryId: z.coerce.number({ invalid_type_error: 'Selecione a categoria' }).int().positive('Selecione a categoria'),
   party: optStr(200),
+  partyId: optInt,
   amount: money,
   competenceDate: reqDate,
   dueDate: reqDate,
@@ -81,10 +82,19 @@ const txSchema = z.object({
   settledDate: optDate, // preenchido = já nasce paga/recebida
 });
 
-const TX_SELECT = `t.id, t.type, t.description, t.category_id AS "categoryId", c.name AS category, t.party, t.amount, t.competence_date AS "competenceDate",
+const TX_SELECT = `t.id, t.type, t.description, t.category_id AS "categoryId", c.name AS category, t.party, t.party_id AS "partyId", t.amount, t.competence_date AS "competenceDate",
   t.due_date AS "dueDate", t.settled_date AS "settledDate", t.method, t.status AS "storedStatus", ${EFF} AS status, t.notes,
   t.attachment_name AS "attachmentName", t.series_id AS "seriesId", t.created_at AS "createdAt"`;
 const TX_FROM = `FROM financial_transactions t JOIN financial_categories c ON c.id = t.category_id`;
+
+/** Com partyId, o nome do cadastro vira o texto exibido (party); sem ele, vale o texto livre. */
+async function resolveParty(c: { query: typeof pool.query }, type: 'receita' | 'despesa', d: { party?: string | null; partyId?: number | null }, keepId?: number | null) {
+  if (!d.partyId) return { party: d.party ?? null, partyId: null as number | null };
+  const p = (await c.query('SELECT id, name, active, is_customer, is_supplier FROM parties WHERE id=$1', [d.partyId])).rows[0];
+  const okKind = p && (type === 'receita' ? p.is_customer : p.is_supplier);
+  if (!p || !okKind || (!p.active && p.id !== keepId)) throw new HttpError(422, type === 'receita' ? 'Cliente inválido ou inativo' : 'Fornecedor inválido ou inativo', { partyId: 'Cadastro inválido ou inativo' });
+  return { party: p.name as string, partyId: p.id as number };
+}
 
 function addMonths(date: string, n: number) {
   const [y, m, d] = date.split('-').map(Number);
@@ -104,6 +114,7 @@ finRouter.get('/transactions', requireAuth('fin.view'), h(async (req, res) => {
   const st = qstr(req, 'status'); if (st) w.add(`${EFF} = ?`, st);
   const me = qstr(req, 'method'); if (me) w.add('t.method = ?', me);
   const party = qstr(req, 'party'); if (party) w.add('t.party ILIKE ?', likeEsc(party));
+  const partyId = qstr(req, 'partyId'); if (partyId) w.add('t.party_id = ?', Number(partyId));
   const total = (await pool.query(`SELECT count(*)::int n, COALESCE(sum(t.amount) FILTER (WHERE t.status<>'cancelada'),0) AS soma ${TX_FROM} ${w.sql}`, w.params)).rows[0];
   const rows = (await pool.query(`SELECT ${TX_SELECT} ${TX_FROM} ${w.sql} ORDER BY ${p.sort} ${p.dir}, t.id LIMIT ${p.pageSize} OFFSET ${(p.page - 1) * p.pageSize}`, w.params)).rows;
   res.json({ rows, total: total.n, sum: total.soma, page: p.page, pageSize: p.pageSize });
@@ -126,16 +137,17 @@ finRouter.post('/transactions', requireAuth('fin.create'), h(async (req, res) =>
   const ids = await tx(async (c) => {
     const cat = (await c.query('SELECT type, active FROM financial_categories WHERE id=$1', [d.categoryId])).rows[0];
     if (!cat || cat.type !== d.type || !cat.active) throw new HttpError(422, 'Categoria inválida para este tipo', { categoryId: 'Categoria inválida ou inativa' });
+    const pty = await resolveParty(c, d.type, d);
     const n = d.repeatMonths ?? 1;
     const series = n > 1 ? crypto.randomUUID() : null;
     const out: string[] = [];
     for (let i = 0; i < n; i++) {
       const desc = n > 1 ? `${d.description} (${i + 1}/${n})` : d.description;
       const row = (await c.query(
-        `INSERT INTO financial_transactions (type, description, category_id, party, amount, competence_date, due_date, settled_date, method, status, notes, series_id, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
-        [d.type, desc, d.categoryId, d.party ?? null, d.amount, addMonths(d.competenceDate, i), addMonths(d.dueDate, i), d.settledDate ?? null, d.method ?? null,
-         d.settledDate ? 'realizada' : 'pendente', d.notes ?? null, series, req.user!.id])).rows[0];
+        `INSERT INTO financial_transactions (type, description, category_id, party, party_id, amount, competence_date, due_date, settled_date, method, status, notes, series_id, created_by)
+         VALUES ($1,$2,$3,$4,$14,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+        [d.type, desc, d.categoryId, pty.party, d.amount, addMonths(d.competenceDate, i), addMonths(d.dueDate, i), d.settledDate ?? null, d.method ?? null,
+         d.settledDate ? 'realizada' : 'pendente', d.notes ?? null, series, req.user!.id, pty.partyId])).rows[0];
       if (d.settledDate) {
         await c.query(`INSERT INTO payment_records (transaction_id, amount, effective_date, method, user_id, user_name) VALUES ($1,$2,$3,$4,$5,$6)`,
           [row.id, d.amount, d.settledDate, d.method ?? null, req.user!.id, req.user!.name]);
@@ -156,14 +168,15 @@ finRouter.put('/transactions/:id', requireAuth('fin.edit'), h(async (req, res) =
     if (cur.status === 'cancelada') throw new HttpError(409, 'Lançamento cancelado não pode ser editado.');
     const cat = (await c.query('SELECT type, active FROM financial_categories WHERE id=$1', [d.categoryId])).rows[0];
     if (!cat || cat.type !== cur.type || (!cat.active && cat.type && d.categoryId !== cur.category_id)) throw new HttpError(422, 'Categoria inválida para este tipo', { categoryId: 'Categoria inválida ou inativa' });
+    const pty = await resolveParty(c, cur.type, d, cur.party_id);
     if (cur.status === 'realizada') {
       // lançamento baixado: valores e datas ficam travados (preservam a baixa)
       if (Number(cur.amount) !== d.amount || cur.due_date !== d.dueDate || cur.competence_date !== d.competenceDate)
         throw new HttpError(409, 'Lançamento já baixado: valor e datas não podem ser alterados.');
-      await c.query('UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, notes=$5, updated_at=now() WHERE id=$1', [req.params.id, d.description, d.categoryId, d.party ?? null, d.notes ?? null]);
+      await c.query('UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, party_id=$6, notes=$5, updated_at=now() WHERE id=$1', [req.params.id, d.description, d.categoryId, pty.party, d.notes ?? null, pty.partyId]);
     } else {
-      await c.query(`UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, amount=$5, competence_date=$6, due_date=$7, method=$8, notes=$9, updated_at=now() WHERE id=$1`,
-        [req.params.id, d.description, d.categoryId, d.party ?? null, d.amount, d.competenceDate, d.dueDate, d.method ?? null, d.notes ?? null]);
+      await c.query(`UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, party_id=$10, amount=$5, competence_date=$6, due_date=$7, method=$8, notes=$9, updated_at=now() WHERE id=$1`,
+        [req.params.id, d.description, d.categoryId, pty.party, d.amount, d.competenceDate, d.dueDate, d.method ?? null, d.notes ?? null, pty.partyId]);
     }
     const diffs = [Number(cur.amount) !== d.amount && 'valor', cur.due_date !== d.dueDate && 'vencimento', cur.category_id !== d.categoryId && 'categoria'].filter(Boolean);
     await audit(req, { action: 'editar', module: 'financeiro', entity: 'transaction', entityId: req.params.id, summary: `Lançamento editado: ${d.description}`, details: { campos: diffs, valorAnterior: cur.amount, valorNovo: d.amount, vencimentoAnterior: cur.due_date, vencimentoNovo: d.dueDate } }, c);

@@ -8,7 +8,7 @@ import { useFetch, useForm } from '../../lib/hooks';
 
 interface Role { id: number; name: string; description: string | null; isSystem: boolean; permissions: string[]; userCount: number }
 interface Perm { code: string; module: string; description: string }
-const MOD: Record<string, string> = { dash: 'Dashboard', rh: 'RH / Pessoal', fin: 'Financeiro', est: 'Estoque', cfg: 'Configurações' };
+const MOD: Record<string, string> = { dash: 'Dashboard', rh: 'RH / Pessoal', fin: 'Financeiro', est: 'Estoque', cad: 'Clientes e fornecedores', cfg: 'Configurações' };
 
 function NewRole({ onClose, onSaved }: { onClose: () => void; onSaved: (id: number) => void }) {
   const f = useForm({ name: '', description: '' }); const toast = useToast();

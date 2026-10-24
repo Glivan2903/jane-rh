@@ -1,4 +1,5 @@
 import { Router, type Request } from 'express';
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
@@ -6,6 +7,7 @@ import { pool } from '../db.js';
 import { audit } from '../audit.js';
 import { COOKIE, PASSWORD_RULE, createSession, fetchSessionUser, requireAuth, sha256, strongPassword } from '../auth.js';
 import { HttpError, h, parse } from '../util.js';
+import { appUrl, sendMail } from '../services/mail.js';
 
 export const authRouter = Router();
 
@@ -116,5 +118,64 @@ authRouter.post('/change-password', requireAuth(), rateLimit({ windowMs: 15 * 60
   // encerra as demais sessões do usuário (mantém a atual)
   await pool.query('DELETE FROM sessions WHERE user_id = $1 AND id <> $2', [req.user!.id, req.user!.sessionId]);
   await audit(req, { action: 'alterar_senha', module: 'auth', entity: 'user', entityId: req.user!.id, summary: `${req.user!.name} alterou a própria senha` });
+  res.json({ ok: true });
+}));
+
+// ---- Recuperação de senha por e-mail ----
+const RESET_MIN = 60;
+const forgotLimiter = rateLimit({
+  windowMs: 15 * 60_000, limit: Number(process.env.FORGOT_RATE_LIMIT ?? 5), standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Muitas solicitações. Aguarde alguns minutos.' },
+});
+const GENERIC = 'Se o e-mail estiver cadastrado, enviamos um link para redefinir a senha. Ele vale por 60 minutos.';
+
+authRouter.post('/forgot-password', forgotLimiter, h(async (req, res) => {
+  const { email } = parse(z.object({ email: z.string().trim().toLowerCase().email('Informe um e-mail válido') }), req.body);
+  const u = (await pool.query('SELECT id, name, email FROM users WHERE lower(email) = $1 AND active', [email])).rows[0];
+  if (u) {
+    // no máximo um link por minuto por usuário; solicitações anteriores deixam de valer
+    const recent = (await pool.query(`SELECT 1 FROM password_resets WHERE user_id = $1 AND created_at > now() - interval '1 minute'`, [u.id])).rowCount;
+    if (!recent) {
+      const token = crypto.randomBytes(32).toString('hex');
+      await pool.query('DELETE FROM password_resets WHERE user_id = $1 AND used_at IS NULL', [u.id]);
+      await pool.query('INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1,$2, now() + make_interval(mins => $3::int))', [u.id, sha256(token), RESET_MIN]);
+      const link = `${appUrl()}/redefinir-senha?token=${token}`;
+      await audit(req, { action: 'solicitar_redefinicao', module: 'auth', entity: 'user', entityId: u.id, summary: `Redefinição de senha solicitada para ${u.email}` }, pool, { id: u.id, name: u.name });
+      // envio fora do caminho da resposta: o tempo não revela se o e-mail existe
+      sendMail({
+        to: u.email, subject: 'Redefinição de senha - Gentis',
+        text: `Olá, ${u.name}.\n\nRecebemos um pedido para redefinir sua senha. Acesse o link abaixo em até ${RESET_MIN} minutos:\n${link}\n\nSe você não pediu, ignore este e-mail: sua senha continua a mesma.`,
+      }).catch((e) => console.error('[e-mail] falha ao enviar redefinição:', e.message));
+    }
+  }
+  res.json({ ok: true, message: GENERIC });
+}));
+
+authRouter.post('/reset-password', rateLimit({ windowMs: 15 * 60_000, limit: 20, message: { error: 'Muitas tentativas. Aguarde.' } }), h(async (req, res) => {
+  const body = parse(z.object({
+    token: z.string().min(20).max(200),
+    password: z.string().refine(strongPassword, PASSWORD_RULE),
+    confirm: z.string(),
+  }).refine((d) => d.password === d.confirm, { path: ['confirm'], message: 'As senhas não conferem' }), req.body);
+  const hash = await bcrypt.hash(body.password, 12);
+  const c = await pool.connect();
+  let user: { id: string; name: string };
+  try {
+    await c.query('BEGIN');
+    const r = (await c.query(
+      `SELECT pr.id, u.id AS user_id, u.name FROM password_resets pr JOIN users u ON u.id = pr.user_id AND u.active
+        WHERE pr.token_hash = $1 AND pr.used_at IS NULL AND pr.expires_at > now() FOR UPDATE OF pr`, [sha256(body.token)])).rows[0];
+    if (!r) { await c.query('ROLLBACK'); throw new HttpError(400, 'Link inválido ou expirado. Solicite uma nova redefinição.'); }
+    await c.query('UPDATE password_resets SET used_at = now() WHERE id = $1', [r.id]);
+    await c.query('UPDATE users SET password_hash = $2, must_change_password = false, failed_attempts = 0, locked_until = NULL, updated_at = now() WHERE id = $1', [r.user_id, hash]);
+    await c.query('DELETE FROM sessions WHERE user_id = $1', [r.user_id]);
+    await c.query('DELETE FROM password_resets WHERE user_id = $1 AND used_at IS NULL', [r.user_id]);
+    user = { id: r.user_id, name: r.name };
+    await audit(req, { action: 'redefinir_senha', module: 'auth', entity: 'user', entityId: user.id, summary: `${user.name} redefiniu a senha pelo link enviado por e-mail` }, c, user);
+    await c.query('COMMIT');
+  } catch (e) {
+    await c.query('ROLLBACK').catch(() => undefined);
+    throw e;
+  } finally { c.release(); }
   res.json({ ok: true });
 }));

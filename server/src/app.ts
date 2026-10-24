@@ -14,6 +14,7 @@ import { finRouter } from './routes/fin.js';
 import { estRouter } from './routes/est.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { companyRouter } from './routes/company.js';
+import { cadRouter } from './routes/cad.js';
 
 export function createApp() {
   const app = express();
@@ -41,6 +42,7 @@ export function createApp() {
   app.use('/api/est', estRouter);
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/company', companyRouter);
+  app.use('/api/cad', cadRouter);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Recurso não encontrado')));
 
   // Produção: serve o frontend compilado (mesma origem).

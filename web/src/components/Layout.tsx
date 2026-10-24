@@ -33,6 +33,9 @@ const NAV: Group[] = [
     { to: '/estoque/cadastros', label: 'Categorias e unidades', icon: FolderTree },
     { to: '/estoque/relatorios', label: 'Relatórios', icon: FileBarChart },
   ] },
+  { label: 'Cadastros', icon: Users, perm: ['cad.view'], items: [
+    { to: '/cadastros/parceiros', label: 'Clientes e fornecedores', icon: HandCoins },
+  ] },
   { label: 'Configurações', icon: Settings, perm: ['cfg.users', 'cfg.roles', 'cfg.audit', 'cfg.backup', 'cfg.settings'], items: [
     { to: '/config/empresa', label: 'Dados da empresa', icon: Building2, perm: ['cfg.settings'] },
     { to: '/config/usuarios', label: 'Usuários', icon: UserCog, perm: ['cfg.users'] },

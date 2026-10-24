@@ -4,6 +4,7 @@ process.env.PG_DUMP_CMD = 'docker exec -i jane-db pg_dump -U jane -d jane_test';
 process.env.PSQL_CMD = 'docker exec -i jane-db psql -U jane -d jane_test -v ON_ERROR_STOP=1';
 process.env.BACKUP_DIR = './storage/test-backups';
 process.env.LOGIN_RATE_LIMIT = '1000';
+process.env.FORGOT_RATE_LIMIT = '1000';
 
 import test, { before, after } from 'node:test';
 import fs from 'node:fs';
@@ -13,6 +14,7 @@ import type { Server } from 'node:http';
 
 const { createApp } = await import('../src/app.js');
 const { migrate, pool } = await import('../src/db.js');
+const { outbox } = await import('../src/services/mail.js');
 
 let server: Server; let base = '';
 
@@ -429,4 +431,91 @@ test('Backup sem pg_dump/psql: dump nativo guardado no banco, baixar e restaurar
   } finally {
     config.pgDumpCmd = saved.dump; config.psqlCmd = saved.psql; process.env.PATH = saved.path; delete process.env.BACKUP_STORAGE;
   }
+});
+
+test('recuperação de senha por e-mail: link único, expira, encerra sessões e não revela se o e-mail existe', async () => {
+  await mkUser('rec@t.local', 'Consulta');
+  const c = new Client();
+  const antes = outbox.length;
+  const a = await c.post('/api/auth/forgot-password', { email: 'inexistente@t.local' });
+  const b = await c.post('/api/auth/forgot-password', { email: 'REC@t.local' });
+  assert.equal(a.status, 200); assert.equal(b.status, 200);
+  assert.deepEqual(a.body, b.body);                    // mesma resposta existindo ou não
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(outbox.length, antes + 1);
+  assert.equal(outbox.at(-1)!.to, 'rec@t.local');
+  const token = /token=([0-9a-f]+)/.exec(outbox.at(-1)!.text)![1];
+  // o banco guarda só o hash
+  assert.equal((await pool.query('SELECT 1 FROM password_resets WHERE token_hash = $1', [token])).rowCount, 0);
+
+  // reenvio imediato não gera novo e-mail
+  await c.post('/api/auth/forgot-password', { email: 'rec@t.local' });
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(outbox.length, antes + 1);
+
+  const sess = await login('rec@t.local');             // sessão anterior deve cair
+  assert.equal((await c.post('/api/auth/reset-password', { token, password: 'fraca', confirm: 'fraca' })).status, 422);
+  assert.equal((await c.post('/api/auth/reset-password', { token: 'x'.repeat(64), password: 'NovaSenha123', confirm: 'NovaSenha123' })).status, 400);
+  const ok = await c.post('/api/auth/reset-password', { token, password: 'NovaSenha123', confirm: 'NovaSenha123' });
+  assert.equal(ok.status, 200, JSON.stringify(ok.body));
+  assert.equal((await sess.get('/api/auth/me')).status, 401);
+  assert.equal((await c.post('/api/auth/reset-password', { token, password: 'OutraSenha123', confirm: 'OutraSenha123' })).status, 400); // uso único
+  assert.equal((await new Client().post('/api/auth/login', { login: 'rec@t.local', password: PW })).status, 401);
+  assert.equal((await new Client().post('/api/auth/login', { login: 'rec@t.local', password: 'NovaSenha123' })).status, 200);
+
+  // token expirado
+  await pool.query(`UPDATE users SET failed_attempts=0 WHERE email='rec@t.local'`);
+  await c.post('/api/auth/forgot-password', { email: 'rec@t.local' });
+  await new Promise((r) => setTimeout(r, 100));
+  const t2 = /token=([0-9a-f]+)/.exec(outbox.at(-1)!.text)![1];
+  await pool.query(`UPDATE password_resets SET expires_at = now() - interval '1 minute'`);
+  assert.equal((await c.post('/api/auth/reset-password', { token: t2, password: 'OutraSenha123', confirm: 'OutraSenha123' })).status, 400);
+});
+
+test('cadastro único: cliente/fornecedor, documento, espelho no estoque e vínculo no financeiro', async () => {
+  const admin = await login('admin@t.local'), fin = await login('fin@t.local'), con = await login('con@t.local'), rh = await login('rh@t.local');
+  assert.equal((await rh.get('/api/cad/parties')).status, 403);
+  assert.equal((await con.post('/api/cad/parties', { name: 'X', isCustomer: true })).status, 403);
+  assert.equal((await con.get('/api/cad/parties')).status, 200);
+
+  assert.equal((await fin.post('/api/cad/parties', { name: 'Sem tipo' })).status, 422);
+  assert.equal((await fin.post('/api/cad/parties', { name: 'Doc ruim', isCustomer: true, document: '123' })).status, 422);
+  const cli = await fin.post('/api/cad/parties', { name: 'Cliente Alfa', isCustomer: true, document: '529.982.247-25', email: 'ALFA@x.com' });
+  assert.equal(cli.status, 201, JSON.stringify(cli.body));
+  assert.equal((await fin.post('/api/cad/parties', { name: 'cliente alfa', isCustomer: true })).status, 409);
+  assert.equal((await fin.post('/api/cad/parties', { name: 'Outro', isCustomer: true, document: '52998224725' })).status, 409);
+  const g = (await fin.get(`/api/cad/parties/${cli.body.id}`)).body;
+  assert.equal(g.document, '52998224725'); assert.equal(g.email, 'alfa@x.com'); assert.equal(g.isSupplier, false);
+
+  const forn = await fin.post('/api/cad/parties', { name: 'Fornecedor Beta', isSupplier: true, document: '11222333000181' });
+  assert.equal(forn.status, 201, JSON.stringify(forn.body));
+  // espelho: aparece na lista de fornecedores do estoque
+  const sups = (await admin.get('/api/est/suppliers?active=true')).body as { name: string }[];
+  assert.ok(sups.some((s) => s.name === 'Fornecedor Beta')); assert.ok(!sups.some((s) => s.name === 'Cliente Alfa'));
+  assert.equal((await admin.post('/api/est/suppliers', { name: 'Direto' })).status, 404); // cadastro só pelo novo módulo
+
+  // listagem e filtros
+  assert.equal((await admin.get('/api/cad/parties?kind=customer&q=alfa')).body.total, 1);
+  assert.equal((await admin.get('/api/cad/parties?kind=supplier&q=alfa')).body.total, 0);
+  assert.deepEqual((await admin.get('/api/cad/parties/options?kind=supplier')).body.map((p: any) => p.name), ['Fornecedor Beta']);
+
+  // financeiro: o cadastro vira o texto exibido; tipo errado é recusado
+  const cat = (await admin.post('/api/fin/categories', { name: 'Vendas Cad', type: 'receita' })).body.id;
+  const catD = (await admin.post('/api/fin/categories', { name: 'Compras Cad', type: 'despesa' })).body.id;
+  const base = { description: 'Venda', categoryId: cat, amount: 100, competenceDate: '2026-02-01', dueDate: '2026-02-10' };
+  assert.equal((await fin.post('/api/fin/transactions', { type: 'receita', ...base, partyId: forn.body.id })).status, 422);
+  const t = await fin.post('/api/fin/transactions', { type: 'receita', ...base, partyId: cli.body.id, party: 'texto ignorado' });
+  assert.equal(t.status, 201, JSON.stringify(t.body));
+  const row = (await fin.get(`/api/fin/transactions/${t.body.id}`)).body;
+  assert.equal(row.party, 'Cliente Alfa'); assert.equal(row.partyId, cli.body.id);
+  assert.equal((await fin.post('/api/fin/transactions', { type: 'despesa', ...base, categoryId: catD, partyId: forn.body.id })).status, 201);
+  assert.equal((await fin.post('/api/fin/transactions', { type: 'despesa', ...base, categoryId: catD, party: 'Texto livre' })).status, 201); // texto livre segue valendo
+
+  // uso, inativação e espelho
+  assert.equal((await admin.get(`/api/cad/parties/${cli.body.id}`)).body.usageCount, 1);
+  const off = await admin.put(`/api/cad/parties/${forn.body.id}`, { name: 'Fornecedor Beta', isSupplier: true, active: false });
+  assert.equal(off.status, 200, JSON.stringify(off.body));
+  assert.ok(!(await admin.get('/api/est/suppliers?active=true')).body.some((s: any) => s.name === 'Fornecedor Beta'));
+  assert.equal((await fin.post('/api/fin/transactions', { type: 'despesa', ...base, categoryId: catD, partyId: forn.body.id })).status, 422); // inativo
+  assert.equal((await fin.put(`/api/cad/parties/${forn.body.id}`, { name: 'Fornecedor Beta', isSupplier: true, active: true })).status, 403); // fin não tem cad.inactivate
 });

@@ -9,7 +9,7 @@ import { useFetch, useForm, useList } from '../../lib/hooks';
 import { brl, dmy, newKey, todayIso } from '../../lib/format';
 
 export interface Tx {
-  id: string; type: 'receita' | 'despesa'; description: string; categoryId: number; category: string; party: string | null; amount: string; competenceDate: string;
+  id: string; type: 'receita' | 'despesa'; description: string; categoryId: number; category: string; party: string | null; partyId: number | null; amount: string; competenceDate: string;
   dueDate: string; settledDate: string | null; method: string | null; status: string; notes: string | null; attachmentName: string | null; storedStatus: string;
 }
 export const METHODS = ['Dinheiro', 'PIX', 'Transferência', 'Boleto', 'Cartão de crédito', 'Cartão de débito', 'Cheque', 'Outro'];
@@ -19,8 +19,9 @@ const LABEL: Record<string, string> = { prevista: 'Prevista', vencida: 'Vencida'
 function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; row: Tx | null; onClose: () => void; onSaved: () => void }) {
   const isR = type === 'receita'; const { can } = useAuth(); const toast = useToast();
   const cats = useFetch<{ id: number; name: string }[]>('/fin/categories', { type, active: 'true' });
+  const parties = useFetch<{ id: number; name: string }[]>('/cad/parties/options', { kind: isR ? 'customer' : 'supplier' });
   const f = useForm({
-    description: row?.description ?? '', categoryId: String(row?.categoryId ?? ''), party: row?.party ?? '', amount: row ? String(row.amount) : '', competenceDate: row?.competenceDate ?? todayIso(),
+    description: row?.description ?? '', categoryId: String(row?.categoryId ?? ''), party: row?.party ?? '', partyId: row?.partyId ? String(row.partyId) : '', amount: row ? String(row.amount) : '', competenceDate: row?.competenceDate ?? todayIso(),
     dueDate: row?.dueDate ?? todayIso(), method: row?.method ?? '', notes: row?.notes ?? '', repeatMonths: '', settleNow: false, settledDate: todayIso(),
   });
   const file = useRef<HTMLInputElement>(null);
@@ -41,7 +42,7 @@ function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; 
       <form id="txf" noValidate className="grid gap-3 sm:grid-cols-2" onSubmit={async (e) => {
         e.preventDefault();
         const ok = await f.submit(async () => {
-          const body = { type, description: f.v.description, categoryId: f.v.categoryId, party: f.v.party, amount: Number(f.v.amount), competenceDate: f.v.competenceDate, dueDate: f.v.dueDate, method: f.v.method, notes: f.v.notes };
+          const body = { type, description: f.v.description, categoryId: f.v.categoryId, party: f.v.partyId ? undefined : f.v.party, partyId: f.v.partyId || undefined, amount: Number(f.v.amount), competenceDate: f.v.competenceDate, dueDate: f.v.dueDate, method: f.v.method, notes: f.v.notes };
           const r = row ? await api.put<{ ok: true }>(`/fin/transactions/${row.id}`, body)
             : await api.post<{ id: string }>('/fin/transactions', { ...body, repeatMonths: f.v.repeatMonths ? Number(f.v.repeatMonths) : undefined, settledDate: f.v.settleNow ? f.v.settledDate : undefined });
           const fl = file.current?.files?.[0];
@@ -53,7 +54,8 @@ function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; 
         {locked && <p className="rounded-lg bg-muted px-3 py-2 text-xs sm:col-span-2">Lançamento {isR ? 'recebido' : 'pago'}: valor e datas ficam travados. Para alterá-los, use <b>Estornar baixa</b> na lista.</p>}
         <FInput f={f} name="description" label="Descrição" required className="sm:col-span-2" autoFocus />
         <FSelect f={f} name="categoryId" label="Categoria financeira" required options={(cats.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
-        <FInput f={f} name="party" label={isR ? 'Cliente / origem' : 'Fornecedor / beneficiário'} />
+        <FSelect f={f} name="partyId" label={isR ? 'Cliente cadastrado' : 'Fornecedor cadastrado'} placeholder="Nenhum (digitar abaixo)" options={(parties.data ?? []).map((p) => ({ value: p.id, label: p.name }))} />
+        {!f.v.partyId && <FInput f={f} name="party" label={isR ? 'Cliente / origem (texto livre)' : 'Fornecedor / beneficiário (texto livre)'} />}
         <FInput f={f} name="amount" label="Valor (R$)" type="number" step="0.01" min="0.01" required disabled={locked} />
         <FSelect f={f} name="method" label={isR ? 'Forma de recebimento' : 'Forma de pagamento'} options={METHODS.map((m) => ({ value: m, label: m }))} />
         <FInput f={f} name="competenceDate" label="Data de competência" type="date" required disabled={locked} />

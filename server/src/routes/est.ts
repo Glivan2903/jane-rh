@@ -12,7 +12,11 @@ export const estRouter = Router();
 const perms = { viewPerms: ['est.view'], createPerm: 'est.create', editPerm: 'est.edit', inactivatePerm: 'est.inactivate', module: 'estoque' };
 estRouter.use('/categories', lookupRouter({ table: 'product_categories', label: 'Categoria de produto', ...perms, usedBy: [{ table: 'products', column: 'category_id' }] }));
 estRouter.use('/units', lookupRouter({ table: 'units_of_measure', label: 'Unidade de medida', hasCode: true, ...perms, usedBy: [{ table: 'products', column: 'unit_id' }] }));
-estRouter.use('/suppliers', lookupRouter({ table: 'suppliers', label: 'Fornecedor', ...perms, usedBy: [{ table: 'products', column: 'supplier_id' }, { table: 'stock_movements', column: 'supplier_id' }] }));
+// Fornecedores agora são mantidos em Clientes e fornecedores (/api/cad); aqui só a lista usada nos formulários de estoque.
+estRouter.get('/suppliers', requireAuth('est.view'), h(async (req, res) => {
+  res.json((await pool.query(`SELECT t.id, t.name, t.active, ((SELECT count(*) FROM products x WHERE x.supplier_id = t.id) + (SELECT count(*) FROM stock_movements x WHERE x.supplier_id = t.id))::int AS "usageCount"
+    FROM suppliers t ${req.query.active === 'true' ? 'WHERE t.active' : ''} ORDER BY lower(t.name)`)).rows);
+}));
 
 const allowNegative = async (c: { query: typeof pool.query }) =>
   (await c.query(`SELECT value FROM settings WHERE key='allow_negative_stock'`)).rows[0]?.value === true;

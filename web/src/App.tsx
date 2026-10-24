@@ -5,6 +5,8 @@ import { Layout } from './components/Layout';
 import { ErrorBox, Spinner } from './components/ui';
 import Login from './pages/Login';
 import Setup from './pages/Setup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
 
@@ -21,6 +23,7 @@ const Products = lazy(() => import('./pages/est/Products'));
 const Movements = lazy(() => import('./pages/est/Movements'));
 const EstCatalogs = lazy(() => import('./pages/est/Misc').then((m) => ({ default: m.EstCatalogs })));
 const EstReports = lazy(() => import('./pages/est/Misc').then((m) => ({ default: m.EstReports })));
+const Parties = lazy(() => import('./pages/cad/Parties'));
 const Users = lazy(() => import('./pages/cfg/Users'));
 const Roles = lazy(() => import('./pages/cfg/Roles'));
 const Audit = lazy(() => import('./pages/cfg/Audit'));
@@ -50,6 +53,8 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/configurar" element={<Setup />} />
+            <Route path="/esqueci-senha" element={<ForgotPassword />} />
+            <Route path="/redefinir-senha" element={<ResetPassword />} />
             <Route element={<Protected><Layout /></Protected>}>
               <Route index element={g('dash.view', <Dashboard />)} />
               <Route path="perfil/senha" element={<ChangePassword />} />
@@ -73,6 +78,7 @@ export default function App() {
               <Route path="estoque/movimentacoes" element={g('est.view', <Movements />)} />
               <Route path="estoque/cadastros" element={g('est.view', <EstCatalogs />)} />
               <Route path="estoque/relatorios" element={g('est.view', <EstReports />)} />
+              <Route path="cadastros/parceiros" element={g('cad.view', <Parties />)} />
               <Route path="config/empresa" element={g('cfg.settings', <CompanyPage />)} />
               <Route path="config/usuarios" element={g('cfg.users', <Users />)} />
               <Route path="config/perfis" element={g('cfg.roles', <Roles />)} />
