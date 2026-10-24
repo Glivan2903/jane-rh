@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Eye, Package, Pencil, Plus, Scale, Trash2 } from 'lucide-react';
 import { MovementModal, type Kind, type ProdRef } from './MovementModal';
+import { ScanButton } from '../../components/BarcodeScanner';
 import { Link } from 'react-router-dom';
 import { Badge, DataTable, Empty, Modal, PageHeader, type Col, type Tone } from '../../components/ui';
 import { FCheck, FilterBar, FilterSelect, FInput, FSelect, FTextarea, SearchBox, SubmitButton } from '../../components/forms';
@@ -44,7 +45,7 @@ function ProductForm({ row, onClose, onSaved }: { row: Product | null; onClose: 
         <FTextarea f={f} name="description" label="Descrição" rows={2} className="sm:col-span-2" />
         <FSelect f={f} name="categoryId" label="Categoria" options={(cats.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         <FSelect f={f} name="unitId" label="Unidade de medida" required options={(units.data ?? []).map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` }))} />
-        <FInput f={f} name="barcode" label="Código de barras" />
+        <div className="flex items-end gap-2"><FInput f={f} name="barcode" label="Código de barras" className="min-w-0 flex-1" /><ScanButton onCode={(c) => f.set('barcode', c)} label="Ler o código de barras com a câmera" /></div>
         <FSelect f={f} name="supplierId" label="Fornecedor principal" options={(sups.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         {!row && <FInput f={f} name="cost" label="Custo unitário de aquisição (R$)" type="number" step="0.0001" min="0" />}
         <FInput f={f} name="salePrice" label="Preço de venda (R$)" type="number" step="0.01" min="0" />

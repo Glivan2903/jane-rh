@@ -8,6 +8,7 @@ import { errMsg, useAuth, useConfirm, useToast } from '../../lib/app';
 import { useFetch } from '../../lib/hooks';
 import { dmy, dmyTime, num } from '../../lib/format';
 import { COUNT_STATUS } from './Inventory';
+import { ScanButton } from '../../components/BarcodeScanner';
 
 interface Item { id: number; productId: string; code: string; name: string; barcode: string | null; unit: string; batchId: number | null; batchCode: string | null; expiresAt: string | null;
   systemQty: string; countedQty: string | null; currentQty: string; note: string | null; countedBy: string | null; appliedDelta: string | null }
@@ -52,8 +53,8 @@ export default function InventoryDetail() {
   };
 
   // leitor de código de barras: Enter filtra a lista pelo código lido e leva o cursor ao campo de contagem
-  const onScan = async () => {
-    const code = scan.trim(); if (!code) return;
+  const onScan = async (given?: string) => {
+    const code = (given ?? scan).trim(); if (!code) return;
     setScan(''); setQ(code); setScanMsg('');
     try {
       const r = await api.get<Data>(`/est/counts/${id}`, { q: code, pageSize: 5 });
@@ -96,7 +97,7 @@ export default function InventoryDetail() {
       </div>
       {d.status === 'aberto' && d.stats.movedSince > 0 && <p role="status" className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">{d.stats.movedSince} item(ns) tiveram movimentação de estoque depois da abertura da contagem. Ao finalizar, o estoque é ajustado para o valor contado.</p>}
       <div className="no-print mb-3 grid gap-2 rounded-xl border bg-card p-2.5 sm:grid-cols-3">
-        <div><input className="input" aria-label="Ler código de barras" placeholder="Ler código de barras e pressionar Enter" value={scan} onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onScan(); } }} disabled={!open} />
+        <div><div className="flex gap-2"><input className="input" aria-label="Ler código de barras" placeholder="Ler código de barras e pressionar Enter" value={scan} onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onScan(); } }} disabled={!open} />{open && <ScanButton onCode={(c) => onScan(c)} />}</div>
           {scanMsg && <p role="alert" className="mt-1 text-xs text-danger">{scanMsg}</p>}</div>
         <SearchBox value={q} onChange={setQ} placeholder="Buscar produto, código ou lote…" />
         <FilterSelect label="Mostrar" placeholder="Todos os itens" value={only} onChange={setOnly} options={[{ value: 'pendentes', label: 'Só pendentes' }, { value: 'contados', label: 'Só contados' }, { value: 'divergentes', label: 'Só com diferença' }]} />

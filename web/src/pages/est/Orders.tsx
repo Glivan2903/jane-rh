@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { errMsg, useAuth, useConfirm, useToast } from '../../lib/app';
 import { useFetch, useForm, useList } from '../../lib/hooks';
 import { brl, dmy, num, todayIso } from '../../lib/format';
+import { ScanButton } from '../../components/BarcodeScanner';
 
 interface Row { id: number; number: string; status: string; partyId: number; supplier: string; orderDate: string; expectedDate: string | null; total: string; itemsCount: number; receivedRatio: string }
 interface Item { id: number; productId: string; code: string; name: string; unit: string; tracksBatches: boolean; quantity: string; unitCost: string; receivedQty: string; remaining: string }
@@ -74,7 +75,7 @@ function OrderForm({ orderId, onClose, onSaved }: { orderId: number | null; onCl
           <div>
             <p className="mb-1 text-xs font-semibold">Produtos do pedido</p>
             <div className="flex flex-wrap items-end gap-2 rounded-lg border bg-muted/30 p-2.5">
-              <input className="input min-w-48 flex-1" type="search" aria-label="Pesquisar produto" placeholder="Pesquisar por nome, código ou código de barras…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <div className="flex min-w-48 flex-1 gap-2"><input className="input" type="search" aria-label="Pesquisar produto" placeholder="Pesquisar por nome, código ou código de barras…" value={search} onChange={(e) => setSearch(e.target.value)} /><ScanButton onCode={(c) => setSearch(c)} /></div>
               <select className="input min-w-56 flex-1" aria-label="Produto" value={pick} onChange={(e) => setPick(e.target.value)}>
                 <option value="">{opts.loading ? 'Carregando…' : opts.data?.length ? 'Selecione o produto…' : 'Nenhum produto encontrado'}</option>
                 {(opts.data ?? []).map((o) => <option key={o.id} value={o.id}>{o.code} — {o.name}</option>)}

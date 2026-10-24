@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowDownToLine, ArrowUpFromLine, Scale } from 'lucide-react';
 import { Modal, useDebounced } from '../../components/ui';
+import { ScanButton } from '../../components/BarcodeScanner';
 import { FInput, FSelect, FTextarea } from '../../components/forms';
 import { api } from '../../lib/api';
 import { useToast } from '../../lib/app';
@@ -34,8 +35,8 @@ export function MovementModal({ kind, product, onClose, onDone }: { kind: Kind; 
   const batches = useFetch<Batch[]>(tracked ? `/est/products/${sel!.id}/batches` : null);
   const batch = (batches.data ?? []).find((b) => String(b.id) === f.v.batchId);
   // leitor de código de barras (teclado): Enter localiza o produto pelo código de barras ou código interno
-  const lookup = async () => {
-    const code = scan.trim(); if (!code) return;
+  const lookup = async (given?: string) => {
+    const code = (given ?? scan).trim(); if (!code) return;
     try { const p = await api.get<Opt>('/est/products/lookup', { code }); setFound({ ...p, cost: '0' }); f.set('productId', p.id); f.set('batchId', ''); setScanErr(''); setScan(''); }
     catch (e) { setScanErr(e instanceof Error ? e.message : 'Produto não encontrado.'); }
   };
@@ -74,7 +75,7 @@ export function MovementModal({ kind, product, onClose, onDone }: { kind: Kind; 
           </p>
         ) : (
           <div className="sm:col-span-2">
-            <div className="mb-2"><input className="input" aria-label="Ler código de barras" placeholder="Ler código de barras (ou digitar o código) e pressionar Enter" value={scan} onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); lookup(); } }} autoFocus />
+            <div className="mb-2"><div className="flex gap-2"><input className="input" aria-label="Ler código de barras" placeholder="Ler código de barras (ou digitar o código) e pressionar Enter" value={scan} onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); lookup(); } }} autoFocus /><ScanButton onCode={(c) => lookup(c)} /></div>
               {scanErr && <p role="alert" className="mt-1 text-xs text-danger">{scanErr}</p>}</div>
             <input className="input mb-2" type="search" placeholder="Pesquisar produto por código, nome ou código de barras…" aria-label="Pesquisar produto" value={search} onChange={(e) => setSearch(e.target.value)} />
             <FSelect f={f} name="productId" label="Produto" required placeholder={opts.loading ? 'Carregando…' : opts.data?.length ? 'Selecione…' : 'Nenhum produto ativo encontrado'}
