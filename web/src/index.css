@@ -47,6 +47,10 @@ body { @apply bg-background text-foreground font-sans antialiased; }
   .btn-outline { @apply btn border bg-card hover:bg-muted; }
   .btn-ghost { @apply btn hover:bg-muted; }
   .btn-danger { @apply btn bg-danger text-white hover:brightness-110; }
+  /* Botões dentro do destaque escuro do topo da página */
+  .hero .btn-outline { @apply border-white/25 bg-white/10 text-white hover:bg-white/20; }
+  .hero .btn-ghost { @apply text-white hover:bg-white/10; }
+  .hero .input, .hero select, .hero input { @apply text-foreground; }
   .btn-sm { @apply px-2.5 py-1 text-xs sm:px-3 sm:py-1.5; }
   .input { @apply w-full rounded-lg border bg-card px-2.5 py-1.5 text-[13px] sm:px-3 sm:py-2 sm:text-sm placeholder:text-muted-foreground/70 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60; }
   .input-error { @apply border-danger focus:border-danger focus:ring-danger/30; }

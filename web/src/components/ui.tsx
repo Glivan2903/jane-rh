@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import gsap from 'gsap';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowLeft, ChevronsUpDown, Inbox, Loader2, X, type LucideIcon } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { iconForPath } from '../lib/pageIcons';
 
 export const Spinner = ({ className = 'h-4 w-4' }: { className?: string }) => <Loader2 className={`animate-spin ${className}`} aria-label="Carregando" />;
 
@@ -20,21 +21,27 @@ export function useReveal<T extends HTMLElement>(deps: unknown[] = []) {
 }
 
 /** `back`: caminho de destino do botão Voltar (canto superior direito); `true` volta no histórico. */
-export function PageHeader({ title, subtitle, actions, back }: { title: string; subtitle?: string; actions?: ReactNode; back?: string | boolean }) {
-  const nav = useNavigate();
+/** Cabeçalho de página: destaque escuro com o ícone da página ao fundo (o ícone vem da rota, ou da prop `icon`). `dense` reduz a altura (telas cheias, como o chat). */
+export function PageHeader({ title, subtitle, actions, back, icon, dense }: { title: string; subtitle?: string; actions?: ReactNode; back?: string | boolean; icon?: LucideIcon; dense?: boolean }) {
+  const nav = useNavigate(); const { pathname } = useLocation();
+  const Icon = icon ?? iconForPath(pathname);
   return (
-    <div className="no-print mb-3 flex flex-wrap items-end justify-between gap-2 sm:mb-5 sm:gap-3">
-      <div>
-        <h1 className="font-display text-xl font-bold tracking-tight sm:text-2xl">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">{subtitle}</p>}
-      </div>
-      {(actions || back) && (
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          {actions}
-          {back && <button type="button" className="btn-outline" onClick={() => (typeof back === 'string' ? nav(back) : nav(-1))}><ArrowLeft className="h-4 w-4" />Voltar</button>}
+    <header className={`hero no-print relative overflow-hidden rounded-2xl bg-[#0b1f2e] text-white ${dense ? 'mb-2 px-4 py-2.5 sm:mb-3' : 'mb-3 px-4 py-3.5 sm:mb-5 sm:px-6 sm:py-4'}`}>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_12%_0%,rgba(20,184,166,.30),transparent_55%),radial-gradient(ellipse_at_96%_100%,rgba(255,122,89,.20),transparent_50%)]" />
+      <Icon aria-hidden strokeWidth={1.2} className={`pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-white/[0.09] ${dense ? 'h-16 w-16' : 'h-20 w-20 sm:h-24 sm:w-24'}`} />
+      <div className="relative flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
+        <div className="min-w-0">
+          <h1 className="font-display text-xl font-bold leading-tight tracking-tight sm:text-2xl">{title}</h1>
+          {subtitle && <p className="mt-0.5 text-xs text-white/70 sm:text-sm">{subtitle}</p>}
         </div>
-      )}
-    </div>
+        {(actions || back) && (
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {actions}
+            {back && <button type="button" className="btn-outline" onClick={() => (typeof back === 'string' ? nav(back) : nav(-1))}><ArrowLeft className="h-4 w-4" />Voltar</button>}
+          </div>
+        )}
+      </div>
+    </header>
   );
 }
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowUp, Boxes, Bot, Check, Copy, Download, History, Loader2, MessageSquarePlus, Trash2, UserCog, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ErrorBox, Skeleton } from '../../components/ui';
+import { ErrorBox, PageHeader, Skeleton } from '../../components/ui';
 import { SafeText } from '../../components/SafeText';
 import { PALETTE } from '../../components/charts';
 import { api } from '../../lib/api';
@@ -159,11 +159,8 @@ export default function Assistant() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
-        <div className="min-w-0"><h1 className="font-display text-xl font-bold leading-tight sm:text-2xl">Assistente de IA</h1>
-          <p className="hidden truncate text-xs text-muted-foreground sm:block">Pergunte em português sobre os dados liberados para você. O assistente só consulta; não altera nada.</p></div>
-        <button className="btn-outline btn-sm lg:hidden" onClick={() => setShowList((v) => !v)} aria-expanded={showList}><History className="h-4 w-4" />Conversas</button>
-      </div>
+      <PageHeader dense title="Assistente de IA" subtitle="Faça perguntas sobre os dados liberados para você. O assistente só consulta; não altera nada."
+        actions={<button className="btn-outline btn-sm lg:hidden" onClick={() => setShowList((v) => !v)} aria-expanded={showList}><History className="h-4 w-4" />Conversas</button>} />
       {!st.access.enabled || !(st.access.finance || st.access.stock || st.access.hr) ? (
         <div role="status" className="card p-6 text-sm">O administrador ainda não liberou o Assistente de IA para o seu usuário. Peça acesso em <b>Configurações &gt; Assistente de IA</b>.</div>
       ) : !st.configured ? (
