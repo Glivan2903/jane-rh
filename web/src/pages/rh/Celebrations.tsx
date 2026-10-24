@@ -5,15 +5,27 @@ import { Badge, Empty, ErrorBox, PageHeader, Skeleton } from '../../components/u
 import { useFetch } from '../../lib/hooks';
 import { dmy } from '../../lib/format';
 
-interface Person { id: string; name: string; department: string | null; day: number; isToday: boolean; turns?: number; years?: number; pending?: boolean }
+interface Person { id: string; name: string; department: string | null; position: string | null; day: number; isToday: boolean; turns?: number; years?: number; pending?: boolean; birthDate?: string; admissionDate?: string }
 interface Up { id: string; name: string; department: string | null; kind: 'aniversario' | 'tempo_de_casa'; date: string; number: number; daysLeft: number; pending?: boolean }
 interface Data { month: number; year: number; today: string; birthdays: Person[]; workAnniversaries: Person[]; upcoming: Up[] }
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const when = (n: number) => (n === 0 ? 'hoje' : n === 1 ? 'amanhã' : `em ${n} dias`);
 const milestone = (y: number) => y === 1 || y % 5 === 0;
 
-function Day({ day, today }: { day: number; today?: boolean }) {
-  return <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm font-bold tabular-nums ${today ? 'bg-accent text-white' : 'bg-primary/10 text-primary'}`}>{String(day).padStart(2, '0')}</span>;
+const MON = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+/** Dia da semana da data no ano exibido (ex.: "quarta-feira"). */
+const weekday = (year: number, month: number, day: number) => {
+  const w = new Date(Date.UTC(year, month - 1, day, 12)).toLocaleDateString('pt-BR', { weekday: 'long', timeZone: 'UTC' });
+  return w.charAt(0).toUpperCase() + w.slice(1);
+};
+
+function Day({ day, month, today }: { day: number; month: number; today?: boolean }) {
+  return (
+    <span className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg leading-none ${today ? 'bg-accent text-white' : 'bg-primary/10 text-primary'}`}>
+      <span className="text-base font-bold tabular-nums">{pad2(day)}</span><span className="mt-0.5 text-[9px] font-semibold tracking-wide">{MON[month - 1]}</span>
+    </span>
+  );
 }
 
 export default function Celebrations() {
@@ -61,17 +73,25 @@ export default function Celebrations() {
             <section className="card p-5" aria-label="Aniversariantes do mês">
               <h3 className="mb-3 flex items-center gap-2 font-display font-bold"><Cake className="h-4 w-4 text-accent" />Aniversariantes ({d.birthdays.length})</h3>
               {d.birthdays.length === 0 ? <Empty icon={Cake} title="Nenhum aniversariante neste mês" /> : (
-                <ul className="space-y-2">{d.birthdays.map((b) => (
-                  <li key={b.id} className="flex items-center gap-3"><Day day={b.day} today={b.isToday} />
-                    <div className="min-w-0 flex-1"><Link to={`/rh/funcionarios/${b.id}`} className="text-sm font-semibold hover:text-primary hover:underline">{b.name}</Link><p className="truncate text-xs text-muted-foreground">{b.isToday ? 'Faz' : past(b.day) ? 'Completou' : 'Completa'} {b.turns} anos{b.department ? ` · ${b.department}` : ''}</p></div>
-                    {b.pending && <Badge tone="warning">Aguardando admissão</Badge>}{b.isToday && <Badge tone="warning">Hoje</Badge>}</li>))}</ul>)}
+                <ul className="space-y-3">{d.birthdays.map((b) => (
+                  <li key={b.id} className="flex items-center gap-3"><Day day={b.day} month={d.month} today={b.isToday} />
+                    <div className="min-w-0 flex-1">
+                      <Link to={`/rh/funcionarios/${b.id}`} className="text-sm font-semibold hover:text-primary hover:underline">{b.name}</Link>
+                      <p className="text-xs"><b>{pad2(b.day)}/{pad2(d.month)}</b> · {weekday(d.year, d.month, b.day)} · {b.isToday ? 'Faz' : past(b.day) ? 'Completou' : 'Completa'} {b.turns} anos</p>
+                      <p className="truncate text-xs text-muted-foreground">Nascimento {dmy(b.birthDate)}{b.position ? ` · ${b.position}` : ''}{b.department ? ` · ${b.department}` : ''}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">{b.isToday && <Badge tone="warning">Hoje</Badge>}{b.pending && <Badge tone="warning">Aguardando admissão</Badge>}</div></li>))}</ul>)}
             </section>
             <section className="card p-5" aria-label="Tempo de casa no mês">
               <h3 className="mb-3 flex items-center gap-2 font-display font-bold"><Award className="h-4 w-4 text-primary" />Tempo de casa ({d.workAnniversaries.length})</h3>
               {d.workAnniversaries.length === 0 ? <Empty icon={Award} title="Nenhum aniversário de empresa neste mês" hint="Aparecem funcionários com 1 ano ou mais de casa." /> : (
-                <ul className="space-y-2">{d.workAnniversaries.map((w) => (
-                  <li key={w.id} className="flex items-center gap-3"><Day day={w.day} today={w.isToday} />
-                    <div className="min-w-0 flex-1"><Link to={`/rh/funcionarios/${w.id}`} className="text-sm font-semibold hover:text-primary hover:underline">{w.name}</Link><p className="truncate text-xs text-muted-foreground">{past(w.day) && !w.isToday ? 'Completou' : 'Completa'} {w.years} ano{w.years === 1 ? '' : 's'} de empresa{w.department ? ` · ${w.department}` : ''}</p></div>
+                <ul className="space-y-3">{d.workAnniversaries.map((w) => (
+                  <li key={w.id} className="flex items-center gap-3"><Day day={w.day} month={d.month} today={w.isToday} />
+                    <div className="min-w-0 flex-1">
+                      <Link to={`/rh/funcionarios/${w.id}`} className="text-sm font-semibold hover:text-primary hover:underline">{w.name}</Link>
+                      <p className="text-xs"><b>{pad2(w.day)}/{pad2(d.month)}</b> · {weekday(d.year, d.month, w.day)} · {w.isToday ? 'Completa' : past(w.day) ? 'Completou' : 'Completa'} {w.years} ano{w.years === 1 ? '' : 's'} de empresa</p>
+                      <p className="truncate text-xs text-muted-foreground">Admissão {dmy(w.admissionDate)}{w.position ? ` · ${w.position}` : ''}{w.department ? ` · ${w.department}` : ''}</p>
+                    </div>
                     {w.isToday ? <Badge tone="warning">Hoje</Badge> : milestone(w.years ?? 0) && <Badge tone="success">{w.years} anos</Badge>}</li>))}</ul>)}
             </section>
           </div>

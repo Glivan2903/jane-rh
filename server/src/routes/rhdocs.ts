@@ -22,14 +22,14 @@ rhDocsRouter.get('/celebrations', requireAuth('rh.view'), h(async (req, res) => 
   const month = Math.min(12, Math.max(1, Number(qstr(req, 'month')) || Number(today.slice(5, 7))));
   const year = Number(today.slice(0, 4));
   const birthdays = (await pool.query(
-    `SELECT e.id, e.full_name AS name, d.name AS department, extract(day FROM e.birth_date)::int AS day, ($2::int - extract(year FROM e.birth_date)::int) AS turns,
+    `SELECT e.id, e.full_name AS name, d.name AS department, jp.name AS position, e.birth_date::text AS "birthDate", extract(day FROM e.birth_date)::int AS day, ($2::int - extract(year FROM e.birth_date)::int) AS turns,
             (to_char(e.birth_date,'MM-DD') = to_char(${TODAY_SQL},'MM-DD')) AS "isToday", (e.status = 'pre_cadastro') AS pending
-       FROM employees e LEFT JOIN departments d ON d.id = e.department_id
+       FROM employees e LEFT JOIN departments d ON d.id = e.department_id LEFT JOIN job_positions jp ON jp.id = e.position_id
       WHERE e.status IN ('ativo','pre_cadastro') AND e.birth_date IS NOT NULL AND extract(month FROM e.birth_date) = $1 ORDER BY day, lower(e.full_name)`, [month, year])).rows;
   const work = (await pool.query(
-    `SELECT e.id, e.full_name AS name, d.name AS department, extract(day FROM e.admission_date)::int AS day, ($2::int - extract(year FROM e.admission_date)::int) AS years,
+    `SELECT e.id, e.full_name AS name, d.name AS department, jp.name AS position, extract(day FROM e.admission_date)::int AS day, ($2::int - extract(year FROM e.admission_date)::int) AS years,
             e.admission_date::text AS "admissionDate", (to_char(e.admission_date,'MM-DD') = to_char(${TODAY_SQL},'MM-DD')) AS "isToday"
-       FROM employees e LEFT JOIN departments d ON d.id = e.department_id
+       FROM employees e LEFT JOIN departments d ON d.id = e.department_id LEFT JOIN job_positions jp ON jp.id = e.position_id
       WHERE e.status = 'ativo' AND e.admission_date IS NOT NULL AND extract(month FROM e.admission_date) = $1 AND ($2::int - extract(year FROM e.admission_date)::int) >= 1
       ORDER BY day, lower(e.full_name)`, [month, year])).rows;
   // próximos 30 dias, atravessando a virada de mês/ano, com os dois tipos misturados em ordem de data

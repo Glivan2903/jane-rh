@@ -1165,6 +1165,8 @@ test('RH: aniversários e tempo de casa (mês, próximos 30 dias, só ativos)', 
   const mine = (a: any[]) => a.filter((x) => String(x.name).startsWith('Celeb'));
   const hoje = mine(r.birthdays).find((b: any) => b.name === 'Celeb Hoje');
   assert.ok(hoje && hoje.isToday === true && hoje.turns === Y - 1990 && hoje.day === Number(t.slice(8, 10)));
+  assert.equal(hoje.birthDate, shift(0, 1990));                                    // data de nascimento completa no card
+  assert.ok('position' in hoje && 'department' in hoje);
   assert.ok(!mine(r.birthdays).some((b: any) => b.name === 'Celeb Desligado'));
   const pend = mine(r.birthdays).find((b: any) => b.name === 'Celeb Aguardando Admissao');
   assert.ok(pend && pend.pending === true && pend.isToday === true);
