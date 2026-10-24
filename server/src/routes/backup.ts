@@ -101,7 +101,8 @@ const sha = (file: string) => new Promise<string>((resolve, reject) => {
   fs.createReadStream(file).on('data', (d) => hs.update(d)).on('end', () => resolve(hs.digest('hex'))).on('error', reject);
 });
 
-const stamp = () => new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+// Sufixo aleatório: dois backups no mesmo segundo não podem compartilhar o nome (o arquivo de um sobrescreveria/confundiria o do outro).
+const stamp = () => new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19) + '-' + crypto.randomBytes(2).toString('hex');
 
 export async function runBackup(req: Request | null, kind: 'manual' | 'automatico' | 'pre-restauracao') {
   if (busy) throw new HttpError(409, 'Outra operação de backup/restauração está em andamento.');

@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import gsap from 'gsap';
 import {
   Activity, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
-  ChevronDown, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon,
+  ChevronDown, ChevronLeft, Landmark, Layers, LineChart, Link2, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon,
 } from 'lucide-react';
 import { useAuth, useTheme } from '../lib/app';
 import { api } from '../lib/api';
@@ -24,7 +24,11 @@ const NAV: Group[] = [
     { to: '/financeiro', label: 'Visão geral', icon: Activity, end: true },
     { to: '/financeiro/receitas', label: 'Receitas', icon: TrendingUp },
     { to: '/financeiro/despesas', label: 'Despesas', icon: TrendingDown },
+    { to: '/financeiro/fluxo-de-caixa', label: 'Fluxo de caixa', icon: LineChart },
+    { to: '/financeiro/contas', label: 'Contas e transferências', icon: Landmark },
+    { to: '/financeiro/conciliacao', label: 'Conciliação bancária', icon: Link2 },
     { to: '/financeiro/categorias', label: 'Categorias', icon: Tags },
+    { to: '/financeiro/centros-de-custo', label: 'Centros de custo', icon: Layers },
     { to: '/financeiro/relatorios', label: 'Relatórios', icon: FileBarChart },
   ] },
   { label: 'Estoque', icon: Boxes, perm: ['est.view'], items: [

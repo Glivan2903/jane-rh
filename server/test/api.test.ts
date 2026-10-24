@@ -519,3 +519,176 @@ test('cadastro único: cliente/fornecedor, documento, espelho no estoque e vínc
   assert.equal((await fin.post('/api/fin/transactions', { type: 'despesa', ...base, categoryId: catD, partyId: forn.body.id })).status, 422); // inativo
   assert.equal((await fin.put(`/api/cad/parties/${forn.body.id}`, { name: 'Fornecedor Beta', isSupplier: true, active: true })).status, 403); // fin não tem cad.inactivate
 });
+
+// ---------- Fase 1: Financeiro ----------
+const spToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+const addDays = (n: number) => { const d = new Date(`${spToday()}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+test('OFX: lê SGML e XML, vírgula decimal e rejeita arquivo inválido', async () => {
+  const { parseOfx, decodeOfx } = await import('../src/services/ofx.js');
+  const sgml = `OFXHEADER:100\r\nCHARSET:1252\r\n\r\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20260105120000[-3:BRT]<TRNAMT>-1.234,56<FITID>A1<MEMO>Pagamento Luz</STMTTRN>
+<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20260106<TRNAMT>500.00<FITID>A2<NAME>Cliente Beta
+<STMTTRN><TRNTYPE>OTHER<DTPOSTED>20260107<TRNAMT>0.00<FITID>A3<MEMO>zero
+</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+  const l = parseOfx(sgml);
+  assert.deepEqual(l.map((x) => [x.fitid, x.date, x.amount, x.memo]), [['A1', '2026-01-05', -1234.56, 'Pagamento Luz'], ['A2', '2026-01-06', 500, 'Cliente Beta']]);
+  const xml = `<OFX><STMTTRN><DTPOSTED>20260110</DTPOSTED><TRNAMT>-10.5</TRNAMT><FITID>X9</FITID><MEMO>Tarifa</MEMO></STMTTRN></OFX>`;
+  assert.equal(parseOfx(xml)[0].amount, -10.5);
+  assert.throws(() => parseOfx('isto não é ofx'));
+  assert.equal(decodeOfx(Buffer.from('CHARSET:1252\n<MEMO>Preço ação', 'latin1')).includes('Preço ação'), true);
+});
+
+async function uploadOfx(c: Client, accountId: number, content: string, name = 'extrato.ofx') {
+  const fd = new FormData(); fd.append('file', new Blob([content]), name);
+  const r = await fetch(`${base}/api/fin/accounts/${accountId}/ofx`, { method: 'POST', headers: { 'x-requested-with': 'gentis', cookie: c.cookie }, body: fd });
+  return { status: r.status, body: await r.json() };
+}
+
+test('contas, transferências, saldo, centros de custo e fluxo de caixa', async () => {
+  const admin = await login('admin@t.local'), fin = await login('fin@t.local'), est = await login('est@t.local'), con = await login('con@t.local');
+  const cat = (await admin.post('/api/fin/categories', { name: 'Vendas F1', type: 'receita' })).body.id;
+  const catD = (await admin.post('/api/fin/categories', { name: 'Compras F1', type: 'despesa' })).body.id;
+
+  const list0 = (await fin.get('/api/fin/accounts')).body;
+  const def = list0.accounts.find((a: any) => a.isDefault);
+  assert.equal(def.name, 'Conta padrão');
+  const base0 = Number(def.balance);
+
+  // lançamento antigo (sem conta) realizado cai na conta padrão
+  const old = await fin.post('/api/fin/transactions', { type: 'receita', description: 'Antiga', categoryId: cat, amount: 1000, competenceDate: '2026-01-01', dueDate: '2026-01-01', settledDate: '2026-01-01' });
+  assert.equal(old.status, 201, JSON.stringify(old.body));
+  assert.equal(Number((await fin.get('/api/fin/accounts')).body.accounts.find((a: any) => a.isDefault).balance), base0 + 1000);
+
+  // permissões
+  assert.equal((await con.get('/api/fin/accounts')).status, 200);
+  assert.equal((await est.get('/api/fin/accounts')).status, 403);
+  assert.equal((await con.post('/api/fin/accounts', { name: 'X' })).status, 403);
+
+  // contas
+  assert.equal((await fin.post('/api/fin/accounts', { name: '' })).status, 422);
+  const itau = await fin.post('/api/fin/accounts', { name: 'Banco Itaú', kind: 'corrente', initialBalance: 5000 });
+  assert.equal(itau.status, 201, JSON.stringify(itau.body));
+  assert.equal((await fin.post('/api/fin/accounts', { name: 'banco itaú' })).status, 409);
+  const cx = (await fin.post('/api/fin/accounts', { name: 'Caixa pequeno', kind: 'caixa' })).body.id;
+  assert.equal((await fin.put(`/api/fin/accounts/${def.id}`, { name: 'Conta padrão', kind: 'caixa', active: false })).status, 409);
+
+  // lançamento numa conta específica e filtro
+  const t1 = await fin.post('/api/fin/transactions', { type: 'despesa', description: 'Luz', categoryId: catD, amount: 300, competenceDate: '2026-02-01', dueDate: '2026-02-05', accountId: itau.body.id, settledDate: '2026-02-05' });
+  assert.equal(t1.status, 201, JSON.stringify(t1.body));
+  assert.equal((await fin.post('/api/fin/transactions', { type: 'despesa', description: 'x', categoryId: catD, amount: 1, competenceDate: '2026-02-01', dueDate: '2026-02-05', accountId: 99999 })).status, 422);
+  const byAcc = (await fin.get(`/api/fin/transactions?type=despesa&accountId=${itau.body.id}`)).body;
+  assert.equal(byAcc.total, 1); assert.equal(byAcc.rows[0].account, 'Banco Itaú');
+  const bal = async (id: number) => Number((await fin.get('/api/fin/accounts')).body.accounts.find((a: any) => a.id === id).balance);
+  assert.equal(await bal(itau.body.id), 5000 - 300);
+
+  // transferências
+  const bad = { fromAccountId: itau.body.id, toAccountId: itau.body.id, amount: 100, date: '2026-02-06' };
+  assert.equal((await fin.post('/api/fin/transfers', bad)).status, 422);
+  assert.equal((await fin.post('/api/fin/transfers', { ...bad, toAccountId: cx, date: '2999-01-01' })).status, 422);
+  const tr = await fin.post('/api/fin/transfers', { ...bad, toAccountId: cx, amount: 1200.5, description: 'Reforço de caixa' });
+  assert.equal(tr.status, 201, JSON.stringify(tr.body));
+  assert.equal(await bal(itau.body.id), 5000 - 300 - 1200.5); assert.equal(await bal(cx), 1200.5);
+  const total = (await fin.get('/api/fin/accounts')).body.total;                       // transferência não muda o total
+  assert.equal((await fin.get(`/api/fin/transfers?accountId=${cx}`)).body.total, 1);
+  assert.equal((await fin.del(`/api/fin/transfers/${tr.body.id}`)).status, 200);
+  assert.equal(await bal(cx), 0);
+  assert.equal((await fin.get('/api/fin/accounts')).body.total, total);
+
+  // centros de custo
+  const cc = await fin.post('/api/fin/cost-centers', { name: 'Marketing' });
+  assert.equal(cc.status, 201, JSON.stringify(cc.body));
+  const tc = await fin.post('/api/fin/transactions', { type: 'despesa', description: 'Anúncio', categoryId: catD, amount: 80, competenceDate: '2026-03-01', dueDate: '2026-03-05', costCenterId: cc.body.id });
+  assert.equal(tc.status, 201, JSON.stringify(tc.body));
+  assert.equal((await fin.get(`/api/fin/transactions?type=despesa&costCenterId=${cc.body.id}`)).body.total, 1);
+  assert.ok((await fin.get(`/api/fin/transactions?type=despesa&costCenterId=none`)).body.total >= 1);
+  const rep = (await fin.get('/api/fin/reports/centros-custo?from=2026-03-01&to=2026-03-31')).body;
+  assert.ok(rep.rows.some((r: any) => r.centro === 'Marketing' && r.despesas === '80,00'));
+
+  // fluxo de caixa: saldo inicial + pendentes por vencimento; vencidos entram hoje
+  const flowAcc = (await fin.post('/api/fin/accounts', { name: 'Conta fluxo', initialBalance: 1000 })).body.id;
+  const mk = (type: string, description: string, amount: number, dueDate: string) =>
+    fin.post('/api/fin/transactions', { type, description, categoryId: type === 'receita' ? cat : catD, amount, competenceDate: dueDate, dueDate, accountId: flowAcc });
+  assert.equal((await mk('receita', 'Receber 10d', 400, addDays(10))).status, 201);
+  assert.equal((await mk('despesa', 'Pagar 20d', 1800, addDays(20))).status, 201);
+  assert.equal((await mk('despesa', 'Pagar 45d', 100, addDays(45))).status, 201);
+  assert.equal((await mk('despesa', 'Vencida', 50, addDays(-3))).status, 201);
+  const f30 = (await fin.get(`/api/fin/cashflow?days=30&accountId=${flowAcc}`)).body;
+  assert.equal(f30.opening, 1000); assert.equal(f30.series.length, 31);
+  assert.equal(f30.totalIn, 400); assert.equal(f30.totalOut, 1850);                    // vencida (50) entra hoje; a de 45d fica de fora
+  assert.equal(f30.closing, 1000 + 400 - 1850); assert.equal(f30.negative, true);
+  assert.equal(f30.series[0].out, 50); assert.equal(f30.overdue.pagar.total, 50);
+  const f60 = (await fin.get(`/api/fin/cashflow?days=60&accountId=${flowAcc}`)).body;
+  assert.equal(f60.series.length, 61); assert.equal(f60.closing, 1000 + 400 - 1950);
+  assert.equal((await fin.get('/api/fin/cashflow?days=7')).body.days, 30);              // valor inválido volta ao padrão
+});
+
+test('conciliação OFX: importar, sugerir, conciliar com baixa, criar lançamento, ignorar e desfazer', async () => {
+  const admin = await login('admin@t.local'), fin = await login('fin@t.local'), con = await login('con@t.local');
+  const acc = (await fin.post('/api/fin/accounts', { name: 'Conta OFX', initialBalance: 0 })).body.id;
+  const other = (await fin.post('/api/fin/accounts', { name: 'Outra conta OFX' })).body.id;
+  const cat = (await admin.post('/api/fin/categories', { name: 'Receita OFX', type: 'receita' })).body.id;
+  const catD = (await admin.post('/api/fin/categories', { name: 'Despesa OFX', type: 'despesa' })).body.id;
+  const d1 = addDays(-4), d2 = addDays(-3), d3 = addDays(-2), d4 = addDays(-1);
+  const compact = (d: string) => d.replaceAll('-', '');
+  const ofx = `<OFX><BANKTRANLIST>
+<STMTTRN><DTPOSTED>${compact(d1)}<TRNAMT>-250.00<FITID>L1<MEMO>Fornecedor Gama</STMTTRN>
+<STMTTRN><DTPOSTED>${compact(d2)}<TRNAMT>900.00<FITID>L2<MEMO>Pix cliente</STMTTRN>
+<STMTTRN><DTPOSTED>${compact(d3)}<TRNAMT>-19.90<FITID>L3<MEMO>Tarifa bancária</STMTTRN>
+<STMTTRN><DTPOSTED>${compact(d4)}<TRNAMT>-77.00<FITID>L4<MEMO>Débito sem par</STMTTRN>
+</BANKTRANLIST></OFX>`;
+
+  assert.equal((await uploadOfx(con, acc, ofx)).status, 403);
+  assert.equal((await uploadOfx(fin, acc, 'lixo')).status, 422);
+  const imp = await uploadOfx(fin, acc, ofx);
+  assert.equal(imp.status, 201, JSON.stringify(imp.body)); assert.equal(imp.body.imported, 4);
+  const again = await uploadOfx(fin, acc, ofx);
+  assert.equal(again.body.imported, 0); assert.equal(again.body.duplicates, 4);        // reimportar não duplica
+
+  // lançamentos para casar: despesa pendente de 250 (venc. perto) e receita pendente de 900
+  const pay = (await fin.post('/api/fin/transactions', { type: 'despesa', description: 'Compra Gama', categoryId: catD, amount: 250, competenceDate: d1, dueDate: addDays(-5) })).body.id;
+  const rec = (await fin.post('/api/fin/transactions', { type: 'receita', description: 'Venda cliente', categoryId: cat, amount: 900, competenceDate: d2, dueDate: d2 })).body.id;
+  const st = (await fin.get(`/api/fin/accounts/${acc}/statement?status=pendente&sort=date&dir=asc`)).body;
+  assert.equal(st.total, 4);
+  const byFit = Object.fromEntries(st.rows.map((r: any) => [r.fitid, r]));
+  assert.equal(byFit.L1.suggestions[0].id, pay); assert.equal(byFit.L2.suggestions[0].id, rec); assert.equal(byFit.L4.suggestions.length, 0);
+
+  // casar com baixa automática; valor divergente e tipo errado são recusados
+  assert.equal((await fin.post(`/api/fin/statement/${byFit.L1.id}/match`, { transactionId: rec })).status, 422);
+  const m1 = await fin.post(`/api/fin/statement/${byFit.L1.id}/match`, { transactionId: pay });
+  assert.equal(m1.status, 200, JSON.stringify(m1.body));
+  const paid = (await fin.get(`/api/fin/transactions/${pay}`)).body;
+  assert.equal(paid.status, 'paga'); assert.equal(paid.settledDate, d1); assert.equal(paid.account, 'Conta OFX');
+  assert.equal((await fin.post(`/api/fin/statement/${byFit.L1.id}/match`, { transactionId: pay })).status, 409);   // linha já tratada
+  assert.equal((await fin.post(`/api/fin/transactions/${pay}/unsettle`, {})).status, 409);                           // conciliado: estorno bloqueado
+
+  // linha de 900 com lançamento de outro valor
+  const wrong = (await fin.post('/api/fin/transactions', { type: 'receita', description: 'Valor errado', categoryId: cat, amount: 899, competenceDate: d2, dueDate: d2 })).body.id;
+  assert.equal((await fin.post(`/api/fin/statement/${byFit.L2.id}/match`, { transactionId: wrong })).status, 422);
+
+  // criar lançamento a partir da linha
+  assert.equal((await fin.post(`/api/fin/statement/${byFit.L3.id}/create`, { categoryId: cat })).status, 422);        // categoria de tipo errado
+  const cr = await fin.post(`/api/fin/statement/${byFit.L3.id}/create`, { categoryId: catD, description: 'Tarifa mensal' });
+  assert.equal(cr.status, 201, JSON.stringify(cr.body));
+  const made = (await fin.get(`/api/fin/transactions/${cr.body.id}`)).body;
+  assert.equal(made.status, 'paga'); assert.equal(Number(made.amount), 19.9); assert.equal(made.account, 'Conta OFX');
+
+  // ignorar e desfazer
+  assert.equal((await fin.post(`/api/fin/statement/${byFit.L4.id}/ignore`, {})).status, 200);
+  assert.equal((await fin.get(`/api/fin/accounts/${acc}/statement?status=pendente`)).body.total, 1);                    // só L2 pendente
+  assert.equal((await fin.post(`/api/fin/statement/${byFit.L4.id}/undo`, {})).status, 200);
+  assert.equal((await fin.get(`/api/fin/accounts/${acc}/statement?status=pendente`)).body.total, 2);
+  const counts = (await fin.get(`/api/fin/accounts/${acc}/statement`)).body.counts;
+  assert.equal(counts.conciliado, 2); assert.equal(counts.pendente, 2);
+
+  // desfazer conciliação libera o estorno
+  assert.equal((await fin.post(`/api/fin/statement/${byFit.L1.id}/undo`, {})).status, 200);
+  assert.equal((await fin.post(`/api/fin/transactions/${pay}/unsettle`, {})).status, 200);
+
+  // lançamento baixado em outra conta não casa com a linha desta
+  const rec2 = (await fin.post('/api/fin/transactions', { type: 'receita', description: 'Em outra conta', categoryId: cat, amount: 900, competenceDate: d2, dueDate: d2, accountId: other, settledDate: d2 })).body.id;
+  assert.equal((await fin.post(`/api/fin/statement/${byFit.L2.id}/match`, { transactionId: rec2 })).status, 422);
+  // saldo da conta reflete as baixas conciliadas
+  const b = (await fin.get('/api/fin/accounts')).body.accounts.find((a: any) => a.id === acc);
+  assert.equal(Number(b.balance), -19.9);
+});

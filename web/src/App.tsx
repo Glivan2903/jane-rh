@@ -17,6 +17,10 @@ const RhReports = lazy(() => import('./pages/rh/Reports'));
 const RhCatalogs = lazy(() => import('./pages/rh/Processes').then((m) => ({ default: m.RhCatalogs })));
 const FinOverview = lazy(() => import('./pages/fin/Overview'));
 const Transactions = lazy(() => import('./pages/fin/Transactions'));
+const Accounts = lazy(() => import('./pages/fin/Accounts'));
+const CashFlow = lazy(() => import('./pages/fin/CashFlow'));
+const Reconcile = lazy(() => import('./pages/fin/Reconcile'));
+const CostCenters = lazy(() => import('./pages/fin/CostCenters'));
 const Categories = lazy(() => import('./pages/fin/Categories'));
 const FinReports = lazy(() => import('./pages/fin/Reports'));
 const Products = lazy(() => import('./pages/est/Products'));
@@ -70,6 +74,10 @@ export default function App() {
               <Route path="financeiro/receitas" element={g('fin.view', <Transactions type="receita" />)} />
               <Route path="financeiro/despesas" element={g('fin.view', <Transactions type="despesa" />)} />
               <Route path="financeiro/categorias" element={g('fin.view', <Categories />)} />
+              <Route path="financeiro/contas" element={g('fin.view', <Accounts />)} />
+              <Route path="financeiro/fluxo-de-caixa" element={g('fin.view', <CashFlow />)} />
+              <Route path="financeiro/conciliacao" element={g('fin.view', <Reconcile />)} />
+              <Route path="financeiro/centros-de-custo" element={g('fin.view', <CostCenters />)} />
               <Route path="financeiro/relatorios" element={g('fin.view', <FinReports />)} />
               <Route path="estoque" element={g('est.view', <Products />)} />
               <Route path="estoque/entrada" element={<Navigate to="/estoque" replace />} />

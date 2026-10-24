@@ -15,6 +15,7 @@ import { estRouter } from './routes/est.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { companyRouter } from './routes/company.js';
 import { cadRouter } from './routes/cad.js';
+import { bankingRouter } from './routes/banking.js';
 
 export function createApp() {
   const app = express();
@@ -39,6 +40,7 @@ export function createApp() {
   app.use('/api/config/backups', backupRouter);
   app.use('/api/rh', rhRouter);
   app.use('/api/fin', finRouter);
+  app.use('/api/fin', bankingRouter);
   app.use('/api/est', estRouter);
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/company', companyRouter);

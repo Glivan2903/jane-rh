@@ -11,6 +11,7 @@ import { hasPerm, requireAuth } from '../auth.js';
 import { HttpError, Where, h, likeEsc, listParams, money, optDate, optInt, optStr, parse, qstr, reqDate, reqStr, sendReport, today } from '../util.js';
 import { EFF, TODAY_SQL, financeSummary } from '../services/finance.js';
 import { getSettings } from '../services/settings.js';
+import { lookupRouter } from './lookup.js';
 
 export const finRouter = Router();
 
@@ -66,6 +67,8 @@ finRouter.delete('/categories/:id', requireAuth('fin.inactivate'), h(async (req,
   res.json({ ok: true });
 }));
 
+finRouter.use('/cost-centers', lookupRouter({ table: 'cost_centers', label: 'Centro de custo', module: 'financeiro', viewPerms: ['fin.view'], createPerm: 'fin.create', editPerm: 'fin.edit', inactivatePerm: 'fin.inactivate', usedBy: [{ table: 'financial_transactions', column: 'cost_center_id' }] }));
+
 // ---------- Lançamentos ----------
 const txSchema = z.object({
   type: z.enum(['receita', 'despesa']),
@@ -73,6 +76,8 @@ const txSchema = z.object({
   categoryId: z.coerce.number({ invalid_type_error: 'Selecione a categoria' }).int().positive('Selecione a categoria'),
   party: optStr(200),
   partyId: optInt,
+  accountId: optInt,
+  costCenterId: optInt,
   amount: money,
   competenceDate: reqDate,
   dueDate: reqDate,
@@ -82,10 +87,12 @@ const txSchema = z.object({
   settledDate: optDate, // preenchido = já nasce paga/recebida
 });
 
-const TX_SELECT = `t.id, t.type, t.description, t.category_id AS "categoryId", c.name AS category, t.party, t.party_id AS "partyId", t.amount, t.competence_date AS "competenceDate",
+const TX_SELECT = `t.id, t.type, t.description, t.category_id AS "categoryId", c.name AS category, t.party, t.party_id AS "partyId", t.account_id AS "accountId", COALESCE(ba.name, (SELECT name FROM bank_accounts WHERE is_default)) AS account,
+  t.cost_center_id AS "costCenterId", cc.name AS "costCenter", t.amount, t.competence_date AS "competenceDate",
   t.due_date AS "dueDate", t.settled_date AS "settledDate", t.method, t.status AS "storedStatus", ${EFF} AS status, t.notes,
   t.attachment_name AS "attachmentName", t.series_id AS "seriesId", t.created_at AS "createdAt"`;
-const TX_FROM = `FROM financial_transactions t JOIN financial_categories c ON c.id = t.category_id`;
+const TX_FROM = `FROM financial_transactions t JOIN financial_categories c ON c.id = t.category_id
+  LEFT JOIN bank_accounts ba ON ba.id = t.account_id LEFT JOIN cost_centers cc ON cc.id = t.cost_center_id`;
 
 /** Com partyId, o nome do cadastro vira o texto exibido (party); sem ele, vale o texto livre. */
 async function resolveParty(c: { query: typeof pool.query }, type: 'receita' | 'despesa', d: { party?: string | null; partyId?: number | null }, keepId?: number | null) {
@@ -94,6 +101,18 @@ async function resolveParty(c: { query: typeof pool.query }, type: 'receita' | '
   const okKind = p && (type === 'receita' ? p.is_customer : p.is_supplier);
   if (!p || !okKind || (!p.active && p.id !== keepId)) throw new HttpError(422, type === 'receita' ? 'Cliente inválido ou inativo' : 'Fornecedor inválido ou inativo', { partyId: 'Cadastro inválido ou inativo' });
   return { party: p.name as string, partyId: p.id as number };
+}
+
+/** Conta e centro de custo precisam existir e estar ativos (a escolha já gravada no lançamento continua válida). */
+async function resolveAccountCc(c: { query: typeof pool.query }, d: { accountId?: number | null; costCenterId?: number | null }, cur?: { account_id: number | null; cost_center_id: number | null }) {
+  if (d.accountId && d.accountId !== cur?.account_id) {
+    const a = (await c.query('SELECT active FROM bank_accounts WHERE id=$1', [d.accountId])).rows[0];
+    if (!a || !a.active) throw new HttpError(422, 'Conta inválida ou inativa', { accountId: 'Conta inválida ou inativa' });
+  }
+  if (d.costCenterId && d.costCenterId !== cur?.cost_center_id) {
+    const k = (await c.query('SELECT active FROM cost_centers WHERE id=$1', [d.costCenterId])).rows[0];
+    if (!k || !k.active) throw new HttpError(422, 'Centro de custo inválido ou inativo', { costCenterId: 'Centro de custo inválido ou inativo' });
+  }
 }
 
 function addMonths(date: string, n: number) {
@@ -114,6 +133,8 @@ finRouter.get('/transactions', requireAuth('fin.view'), h(async (req, res) => {
   const st = qstr(req, 'status'); if (st) w.add(`${EFF} = ?`, st);
   const me = qstr(req, 'method'); if (me) w.add('t.method = ?', me);
   const party = qstr(req, 'party'); if (party) w.add('t.party ILIKE ?', likeEsc(party));
+  const accId = qstr(req, 'accountId'); if (accId) w.add('COALESCE(t.account_id, (SELECT id FROM bank_accounts WHERE is_default)) = ?', Number(accId));
+  const ccId = qstr(req, 'costCenterId'); if (ccId) w.add(ccId === 'none' ? 't.cost_center_id IS NULL' : 't.cost_center_id = ?', ...(ccId === 'none' ? [] : [Number(ccId)]));
   const partyId = qstr(req, 'partyId'); if (partyId) w.add('t.party_id = ?', Number(partyId));
   const total = (await pool.query(`SELECT count(*)::int n, COALESCE(sum(t.amount) FILTER (WHERE t.status<>'cancelada'),0) AS soma ${TX_FROM} ${w.sql}`, w.params)).rows[0];
   const rows = (await pool.query(`SELECT ${TX_SELECT} ${TX_FROM} ${w.sql} ORDER BY ${p.sort} ${p.dir}, t.id LIMIT ${p.pageSize} OFFSET ${(p.page - 1) * p.pageSize}`, w.params)).rows;
@@ -138,16 +159,17 @@ finRouter.post('/transactions', requireAuth('fin.create'), h(async (req, res) =>
     const cat = (await c.query('SELECT type, active FROM financial_categories WHERE id=$1', [d.categoryId])).rows[0];
     if (!cat || cat.type !== d.type || !cat.active) throw new HttpError(422, 'Categoria inválida para este tipo', { categoryId: 'Categoria inválida ou inativa' });
     const pty = await resolveParty(c, d.type, d);
+    await resolveAccountCc(c, d);
     const n = d.repeatMonths ?? 1;
     const series = n > 1 ? crypto.randomUUID() : null;
     const out: string[] = [];
     for (let i = 0; i < n; i++) {
       const desc = n > 1 ? `${d.description} (${i + 1}/${n})` : d.description;
       const row = (await c.query(
-        `INSERT INTO financial_transactions (type, description, category_id, party, party_id, amount, competence_date, due_date, settled_date, method, status, notes, series_id, created_by)
-         VALUES ($1,$2,$3,$4,$14,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+        `INSERT INTO financial_transactions (type, description, category_id, party, party_id, amount, competence_date, due_date, settled_date, method, status, notes, series_id, created_by, account_id, cost_center_id)
+         VALUES ($1,$2,$3,$4,$14,$5,$6,$7,$8,$9,$10,$11,$12,$13,$15,$16) RETURNING id`,
         [d.type, desc, d.categoryId, pty.party, d.amount, addMonths(d.competenceDate, i), addMonths(d.dueDate, i), d.settledDate ?? null, d.method ?? null,
-         d.settledDate ? 'realizada' : 'pendente', d.notes ?? null, series, req.user!.id, pty.partyId])).rows[0];
+         d.settledDate ? 'realizada' : 'pendente', d.notes ?? null, series, req.user!.id, pty.partyId, d.accountId ?? null, d.costCenterId ?? null])).rows[0];
       if (d.settledDate) {
         await c.query(`INSERT INTO payment_records (transaction_id, amount, effective_date, method, user_id, user_name) VALUES ($1,$2,$3,$4,$5,$6)`,
           [row.id, d.amount, d.settledDate, d.method ?? null, req.user!.id, req.user!.name]);
@@ -169,14 +191,15 @@ finRouter.put('/transactions/:id', requireAuth('fin.edit'), h(async (req, res) =
     const cat = (await c.query('SELECT type, active FROM financial_categories WHERE id=$1', [d.categoryId])).rows[0];
     if (!cat || cat.type !== cur.type || (!cat.active && cat.type && d.categoryId !== cur.category_id)) throw new HttpError(422, 'Categoria inválida para este tipo', { categoryId: 'Categoria inválida ou inativa' });
     const pty = await resolveParty(c, cur.type, d, cur.party_id);
+    await resolveAccountCc(c, d, cur);
     if (cur.status === 'realizada') {
       // lançamento baixado: valores e datas ficam travados (preservam a baixa)
       if (Number(cur.amount) !== d.amount || cur.due_date !== d.dueDate || cur.competence_date !== d.competenceDate)
         throw new HttpError(409, 'Lançamento já baixado: valor e datas não podem ser alterados.');
-      await c.query('UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, party_id=$6, notes=$5, updated_at=now() WHERE id=$1', [req.params.id, d.description, d.categoryId, pty.party, d.notes ?? null, pty.partyId]);
+      await c.query('UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, party_id=$6, cost_center_id=$7, notes=$5, updated_at=now() WHERE id=$1', [req.params.id, d.description, d.categoryId, pty.party, d.notes ?? null, pty.partyId, d.costCenterId ?? null]);
     } else {
-      await c.query(`UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, party_id=$10, amount=$5, competence_date=$6, due_date=$7, method=$8, notes=$9, updated_at=now() WHERE id=$1`,
-        [req.params.id, d.description, d.categoryId, pty.party, d.amount, d.competenceDate, d.dueDate, d.method ?? null, d.notes ?? null, pty.partyId]);
+      await c.query(`UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, party_id=$10, account_id=$11, cost_center_id=$12, amount=$5, competence_date=$6, due_date=$7, method=$8, notes=$9, updated_at=now() WHERE id=$1`,
+        [req.params.id, d.description, d.categoryId, pty.party, d.amount, d.competenceDate, d.dueDate, d.method ?? null, d.notes ?? null, pty.partyId, d.accountId ?? null, d.costCenterId ?? null]);
     }
     const diffs = [Number(cur.amount) !== d.amount && 'valor', cur.due_date !== d.dueDate && 'vencimento', cur.category_id !== d.categoryId && 'categoria'].filter(Boolean);
     await audit(req, { action: 'editar', module: 'financeiro', entity: 'transaction', entityId: req.params.id, summary: `Lançamento editado: ${d.description}`, details: { campos: diffs, valorAnterior: cur.amount, valorNovo: d.amount, vencimentoAnterior: cur.due_date, vencimentoNovo: d.dueDate } }, c);
@@ -186,7 +209,7 @@ finRouter.put('/transactions/:id', requireAuth('fin.edit'), h(async (req, res) =
 
 // Baixa: a linha é travada e payment_records.transaction_id é UNIQUE → impossível baixar duas vezes.
 finRouter.post('/transactions/:id/settle', requireAuth('fin.settle'), h(async (req, res) => {
-  const d = parse(z.object({ effectiveDate: reqDate, method: z.preprocess((v) => (v === '' ? null : v), z.enum(METHODS as [string, ...string[]]).nullable().optional()) }), req.body);
+  const d = parse(z.object({ effectiveDate: reqDate, accountId: optInt, method: z.preprocess((v) => (v === '' ? null : v), z.enum(METHODS as [string, ...string[]]).nullable().optional()) }), req.body);
   if (d.effectiveDate > today()) throw new HttpError(422, 'Data efetiva não pode ser futura', { effectiveDate: 'Data efetiva não pode ser futura' });
   await tx(async (c) => {
     const cur = (await c.query('SELECT * FROM financial_transactions WHERE id=$1 FOR UPDATE', [req.params.id])).rows[0];
@@ -194,9 +217,10 @@ finRouter.post('/transactions/:id/settle', requireAuth('fin.settle'), h(async (r
     if (cur.status === 'realizada') throw new HttpError(409, `Este lançamento já foi ${cur.type === 'receita' ? 'recebido' : 'pago'}.`);
     if (cur.status === 'cancelada') throw new HttpError(409, 'Lançamento cancelado não pode ser baixado.');
     const method = d.method ?? cur.method;
+    await resolveAccountCc(c, { accountId: d.accountId }, cur);
     await c.query(`INSERT INTO payment_records (transaction_id, amount, effective_date, method, user_id, user_name) VALUES ($1,$2,$3,$4,$5,$6)`,
       [cur.id, cur.amount, d.effectiveDate, method, req.user!.id, req.user!.name]);
-    await c.query(`UPDATE financial_transactions SET status='realizada', settled_date=$2, method=$3, updated_at=now() WHERE id=$1`, [cur.id, d.effectiveDate, method]);
+    await c.query(`UPDATE financial_transactions SET status='realizada', settled_date=$2, method=$3, account_id=COALESCE($4, account_id), updated_at=now() WHERE id=$1`, [cur.id, d.effectiveDate, method, d.accountId ?? null]);
     await audit(req, { action: 'baixa', module: 'financeiro', entity: 'transaction', entityId: cur.id, summary: `${cur.type === 'receita' ? 'Recebimento' : 'Pagamento'} registrado: ${cur.description} — R$ ${Number(cur.amount).toFixed(2).replace('.', ',')}`, details: { dataEfetiva: d.effectiveDate } }, c);
   });
   res.json({ ok: true });
@@ -210,6 +234,7 @@ finRouter.post('/transactions/:id/unsettle', requireAuth('fin.settle'), h(async 
     const cur = (await c.query('SELECT * FROM financial_transactions WHERE id=$1 FOR UPDATE', [req.params.id])).rows[0];
     if (!cur) throw new HttpError(404, 'Lançamento não encontrado');
     if (cur.status !== 'realizada') throw new HttpError(409, `Este lançamento não está ${cur.type === 'receita' ? 'recebido' : 'pago'}.`);
+    if ((await c.query('SELECT 1 FROM bank_statement_lines WHERE transaction_id=$1', [cur.id])).rowCount) throw new HttpError(409, 'Lançamento conciliado com o extrato: desfaça a conciliação antes de estornar a baixa.');
     const baixa = (await c.query('DELETE FROM payment_records WHERE transaction_id=$1 RETURNING effective_date AS "dataEfetiva", method AS forma, user_name AS "registradaPor", created_at AS "registradaEm"', [cur.id])).rows[0];
     await c.query(`UPDATE financial_transactions SET status='pendente', settled_date=NULL, updated_at=now() WHERE id=$1`, [cur.id]);
     await audit(req, { action: 'estornar', module: 'financeiro', entity: 'transaction', entityId: cur.id, summary: `${cur.type === 'receita' ? 'Recebimento' : 'Pagamento'} estornado: ${cur.description} — R$ ${Number(cur.amount).toFixed(2).replace('.', ',')}`, details: { motivo: reason, baixa } }, c);
@@ -303,7 +328,7 @@ finRouter.get('/summary', requireAuth('fin.view'), h(async (req, res) => {
 const FREPORTS: Record<string, string> = {
   receitas: 'Relatório de receitas', despesas: 'Relatório de despesas', 'a-pagar': 'Contas a pagar', 'a-receber': 'Contas a receber',
   vencidas: 'Contas vencidas', 'fluxo-caixa': 'Fluxo de caixa', resultado: 'Resultado financeiro por período',
-  'despesas-categoria': 'Despesas por categoria', 'receitas-categoria': 'Receitas por categoria', historico: 'Histórico de movimentações',
+  'despesas-categoria': 'Despesas por categoria', 'centros-custo': 'Resultado por centro de custo', 'receitas-categoria': 'Receitas por categoria', historico: 'Histórico de movimentações',
 };
 finRouter.get('/reports', requireAuth('fin.view'), (_req, res) => { res.json(FREPORTS); });
 
@@ -382,6 +407,18 @@ finRouter.get('/reports/:name', requireAuth('fin.view'), h(async (req, res) => {
     const tot = rows.reduce((a, r) => a + Number(r.previsto), 0) || 1;
     return out([{ key: 'categoria', label: 'Categoria' }, { key: 'previsto', label: 'Total no período (R$)' }, { key: 'realizado', label: type === 'despesa' ? 'Pago (R$)' : 'Recebido (R$)' }, { key: 'pct', label: '% do total' }],
       rows.map((r) => ({ categoria: r.categoria, previsto: brl(r.previsto), realizado: brl(r.realizado), pct: `${((Number(r.previsto) / tot) * 100).toFixed(1).replace('.', ',')}%` })));
+  }
+
+  if (name === 'centros-custo') {
+    const rows = (await pool.query(
+      `SELECT COALESCE(cc.name, 'Sem centro de custo') AS centro,
+              COALESCE(sum(t.amount) FILTER (WHERE t.type='receita'),0) AS receitas,
+              COALESCE(sum(t.amount) FILTER (WHERE t.type='despesa'),0) AS despesas
+         FROM financial_transactions t LEFT JOIN cost_centers cc ON cc.id = t.cost_center_id
+        WHERE t.status <> 'cancelada' AND t.due_date BETWEEN $1 AND $2 GROUP BY 1 ORDER BY despesas DESC, receitas DESC`, [from, to])).rows;
+    return out([{ key: 'centro', label: 'Centro de custo' }, { key: 'receitas', label: 'Receitas (R$)' }, { key: 'despesas', label: 'Despesas (R$)' }, { key: 'resultado', label: 'Resultado (R$)' }],
+      rows.map((r) => ({ centro: r.centro, receitas: brl(r.receitas), despesas: brl(r.despesas), resultado: brl(Number(r.receitas) - Number(r.despesas)) })),
+      { note: 'Por data de vencimento, exceto cancelados.' });
   }
 
   // historico de movimentações (baixas)
