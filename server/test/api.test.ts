@@ -1631,3 +1631,43 @@ test('alertas de anomalia: detecta, respeita permissões, dispensa e resolve', a
   assert.ok((await pool.query(`SELECT 1 FROM audit_logs WHERE entity='anomaly' AND action='dispensar'`)).rowCount! >= 1);
   void rh;
 });
+
+test('sugestões de ação: reposição de estoque vira pedido em rascunho só após confirmar', async () => {
+  const admin = await login('admin@t.local'), con = await login('con@t.local'), fin = await login('fin@t.local'), est = await login('est@t.local');
+  const tag = String(Date.now()).slice(-6);
+  const sp = await admin.post('/api/cad/parties', { name: `Sug Forn ${tag}`, isSupplier: true });
+  assert.equal(sp.status, 201, JSON.stringify(sp.body));
+  const partyId = sp.body.id; const legacy = (await pool.query('SELECT legacy_supplier_id l FROM parties WHERE id=$1', [partyId])).rows[0].l;
+  const unit = (await pool.query(`SELECT id FROM units_of_measure LIMIT 1`)).rows[0].id;
+  const mk = async (name: string, qtd: number, min: number, sup: number | null) => (await pool.query(
+    `INSERT INTO products (code, name, unit_id, quantity, min_stock, cost, supplier_id, active) VALUES ($1,$2,$3,$4,$5,7.5,$6,true) RETURNING id`, [`SUG-${tag}-${name}`, `Sug ${name} ${tag}`, unit, qtd, min, sup])).rows[0].id as string;
+  const a = await mk('A', 2, 10, legacy), b = await mk('B', 0, 4, legacy), c = await mk('C', 50, 10, legacy), d = await mk('D', 1, 5, null);
+  const mine = async (cl: typeof admin) => ((await cl.get('/api/suggestions')).body.rows as any[]);
+
+  const g = (await mine(admin)).find((s) => s.partyId === partyId);
+  assert.ok(g, 'grupo do fornecedor'); assert.deepEqual(g.items.map((i: any) => i.productId).sort(), [a, b].sort());   // C está acima do mínimo
+  assert.equal(g.items.find((i: any) => i.productId === a).suggested, 18);    // 2*10 - 2
+  assert.equal(g.items.find((i: any) => i.productId === b).suggested, 8);     // 2*4 - 0
+  assert.ok((await mine(admin)).some((s) => s.partyId === null && s.items.some((i: any) => i.productId === d)));        // sem fornecedor definido
+  assert.deepEqual(await mine(fin), []);                                       // financeiro não consulta estoque
+  assert.equal((await con.post('/api/suggestions/purchase-order/confirm', { partyId, items: [{ productId: a, quantity: 5, unitCost: 1 }] })).status, 403);
+
+  // nada é criado sem confirmar
+  const before = (await pool.query('SELECT count(*)::int n FROM purchase_orders')).rows[0].n;
+  await mine(admin); assert.equal((await pool.query('SELECT count(*)::int n FROM purchase_orders')).rows[0].n, before);
+
+  // confirmar com quantidade ajustada
+  const ok = await est.post('/api/suggestions/purchase-order/confirm', { partyId, items: [{ productId: a, quantity: 20, unitCost: 7.5 }, { productId: b, quantity: 8, unitCost: 7.5 }] });
+  assert.equal(ok.status, 201, JSON.stringify(ok.body));
+  const o = (await admin.get(`/api/est/orders/${ok.body.id}`)).body;
+  assert.equal(o.status, 'rascunho'); assert.equal(o.items.length, 2); assert.equal(Number(o.items.find((i: any) => i.productId === a).quantity), 20);
+  assert.match(o.notes, /sugestão do sistema/);
+  assert.ok((await pool.query(`SELECT 1 FROM audit_logs WHERE entity='purchase_order' AND entity_id=$1 AND summary LIKE '%a partir de sugestão%'`, [String(ok.body.id)])).rowCount === 1);
+
+  // o que já está em pedido aberto sai da sugestão
+  assert.ok(!(await mine(admin)).some((s) => s.partyId === partyId));
+  // validações
+  assert.equal((await admin.post('/api/suggestions/purchase-order/confirm', { partyId: 999999, items: [{ productId: d, quantity: 1, unitCost: 1 }] })).status, 422);
+  assert.equal((await admin.post('/api/suggestions/purchase-order/confirm', { partyId, items: [{ productId: d, quantity: 0, unitCost: 1 }] })).status, 422);
+  assert.equal((await admin.post('/api/suggestions/purchase-order/confirm', { partyId, items: [] })).status, 422);
+});

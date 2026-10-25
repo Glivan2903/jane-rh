@@ -19,6 +19,7 @@ import { bankingRouter } from './routes/banking.js';
 import { aiRouter } from './routes/ai.js';
 import { importRouter } from './routes/import.js';
 import { anomaliesRouter } from './routes/anomalies.js';
+import { suggestionsRouter } from './routes/suggestions.js';
 import { rhDocsRouter } from './routes/rhdocs.js';
 import { estxRouter } from './routes/estx.js';
 
@@ -55,6 +56,7 @@ export function createApp() {
   app.use('/api/ai', aiRouter);
   app.use('/api/import', importRouter);
   app.use('/api/anomalies', anomaliesRouter);
+  app.use('/api/suggestions', suggestionsRouter);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Recurso não encontrado')));
 
   // Produção: serve o frontend compilado (mesma origem).

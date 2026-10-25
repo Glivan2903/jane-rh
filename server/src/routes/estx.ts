@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { pool, tx } from '../db.js';
 import { audit } from '../audit.js';
@@ -186,7 +186,7 @@ estxRouter.get('/counts/:id/report', requireAuth('est.view'), h(async (req, res)
 /* -------------------------------------------------------- pedidos de compra -------------------------------------------------------- */
 const orderItems = z.array(z.object({ productId: z.string({ required_error: 'Selecione o produto' }).uuid('Selecione o produto'), quantity: qty,
   unitCost: z.coerce.number({ invalid_type_error: 'Custo inválido' }).min(0, 'Custo não pode ser negativo').max(999999999) })).min(1, 'Inclua ao menos um produto').max(200);
-const orderSchema = z.object({ partyId: reqInt, orderDate: reqDate, expectedDate: optDate, notes: optStr(1000), items: orderItems });
+export const orderSchema = z.object({ partyId: reqInt, orderDate: reqDate, expectedDate: optDate, notes: optStr(1000), items: orderItems });
 
 async function checkOrder(c: { query: typeof pool.query }, d: z.infer<typeof orderSchema>) {
   const party = (await c.query('SELECT id, name, active, is_supplier FROM parties WHERE id=$1', [d.partyId])).rows[0];
@@ -230,17 +230,21 @@ estxRouter.get('/orders/:id', requireAuth('est.view'), h(async (req, res) => {
   res.json({ ...o, items, receipts });
 }));
 
-estxRouter.post('/orders', requireAuth('est.create'), h(async (req, res) => {
-  const d = parse(orderSchema, req.body);
-  const id = await tx(async (c) => {
+/** Cria o pedido em rascunho (usado pela tela de pedidos e pela confirmação de sugestões). */
+export async function createDraftOrder(req: Request, d: z.infer<typeof orderSchema>, via = '') {
+  return tx(async (c) => {
     const party = await checkOrder(c, d);
     const id = (await c.query(`INSERT INTO purchase_orders (party_id, order_date, expected_date, notes, created_by, created_by_name) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
       [d.partyId, d.orderDate, d.expectedDate ?? null, d.notes ?? null, req.user!.id, req.user!.name])).rows[0].id as number;
     await c.query('UPDATE purchase_orders SET number = $2 WHERE id = $1', [id, `PC-${String(id).padStart(5, '0')}`]);
     for (const i of d.items) await c.query('INSERT INTO purchase_order_items (order_id, product_id, quantity, unit_cost) VALUES ($1,$2,$3,$4)', [id, i.productId, i.quantity, i.unitCost]);
-    await audit(req, { action: 'criar', module: 'estoque', entity: 'purchase_order', entityId: id, summary: `Pedido de compra criado: PC-${String(id).padStart(5, '0')} — ${party.name}` }, c);
-    return id;
+    await audit(req, { action: 'criar', module: 'estoque', entity: 'purchase_order', entityId: id, summary: `Pedido de compra criado${via}: PC-${String(id).padStart(5, '0')} — ${party.name}` }, c);
+    return { id, number: `PC-${String(id).padStart(5, '0')}` };
   });
+}
+
+estxRouter.post('/orders', requireAuth('est.create'), h(async (req, res) => {
+  const { id } = await createDraftOrder(req, parse(orderSchema, req.body));
   res.status(201).json({ id });
 }));
 
