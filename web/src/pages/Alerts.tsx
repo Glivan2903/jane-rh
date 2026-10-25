@@ -79,10 +79,13 @@ export default function Alerts() {
             <option value="">Todas as áreas</option>{data!.areas.map((a) => <option key={a} value={a}>{AREAS[a]}</option>)}
           </select>)}
       </div>
-      {status === 'aberto' && !!sug.data?.rows.length && (
+      {status === 'aberto' && sug.data && (
         <div className="mb-4 space-y-3">
           <h2 className="flex items-center gap-2 font-display text-base font-bold"><Lightbulb className="h-4 w-4 text-primary" />Sugestões para você</h2>
-          {sug.data.rows.map((x) => <SuggestionCard key={x.id} s={x} canAct={sug.data!.can.purchase_order} onDone={sug.reload} />)}
+          {sug.data.rows.length ? sug.data.rows.map((x) => <SuggestionCard key={x.id} s={x} canAct={sug.data!.can.purchase_order} onDone={sug.reload} />) : (
+            <div className="card p-3 text-sm text-muted-foreground sm:p-4">
+              Nenhuma sugestão por enquanto. Quando um produto chegar ao estoque mínimo, aparece aqui uma sugestão de pedido de compra. Para isso, informe o <Link className="font-medium text-primary underline" to="/estoque">estoque mínimo</Link> dos produtos.
+            </div>)}
         </div>)}
       {loading && !data ? <div className="card p-6"><Spinner /></div> : error ? <p role="alert" className="text-danger">{error}</p> : !data?.rows.length ? (
         <div className="card"><Empty icon={CheckCircle2} title={status === 'aberto' ? 'Nada fora do padrão por enquanto' : 'Nenhum alerta aqui'} hint={status === 'aberto' ? 'Os valores e movimentos estão dentro do esperado. A verificação roda sozinha de tempos em tempos.' : undefined} /></div>
