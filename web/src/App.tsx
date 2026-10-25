@@ -67,6 +67,7 @@ export default function App() {
               <Route path="rh/funcionarios/:id/editar" element={g('rh.edit', <EmployeeForm />)} />
               <Route path="rh/admissao" element={<Navigate to="/rh/funcionarios" replace />} />
               <Route path="rh/desligamento" element={<Navigate to="/rh/funcionarios" replace />} />
+              <Route path="alertas" element={<Guard perm={['fin.view', 'est.view', 'rh.view']}><ComingSoon slug="alertas" /></Guard>} />
               <Route path="assistente" element={<ComingSoon slug="assistente" />} />
               <Route path="rh/celebracoes" element={g('rh.view', <ComingSoon slug="rh-celebracoes" />)} />
               <Route path="rh/documentos" element={g('rh.view', <ComingSoon slug="rh-documentos" />)} />

@@ -143,4 +143,16 @@ export const SOON: Record<string, SoonFeature> = {
       { icon: 'shield', title: 'Nada é alterado', text: 'Quem já está cadastrado é ignorado, então dá para importar a mesma planilha de novo sem duplicar.' },
     ],
   },
+  alertas: {
+    slug: 'alertas', label: 'Alertas', icon: 'bell', headline: 'Saiba quando algo foge do padrão',
+    description: 'O sistema compara os números de hoje com o histórico e avisa quando uma despesa, um lançamento ou o estoque saem do normal.',
+    items: [
+      { icon: 'chart', title: 'Despesas acima do normal', text: 'Aponta a categoria que gastou bem mais que a média dos últimos meses.' },
+      { icon: 'alert', title: 'Valores fora do padrão', text: 'Destaca lançamentos muito acima do habitual para a categoria.' },
+      { icon: 'merge', title: 'Possíveis duplicidades', text: 'Encontra lançamentos iguais, no mesmo valor e com vencimentos próximos.' },
+      { icon: 'boxes', title: 'Anomalias de estoque', text: 'Produtos saindo mais rápido que o normal, ajustes grandes e saldo negativo.' },
+      { icon: 'bell', title: 'Aviso no sino', text: 'Os alertas aparecem no sino, e você escolhe a sensibilidade nos parâmetros.' },
+      { icon: 'check', title: 'Você decide', text: 'Cada alerta explica o motivo e pode ser dispensado. Cada pessoa vê só as áreas que pode consultar.' },
+    ],
+  },
 };

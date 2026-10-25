@@ -1,11 +1,17 @@
-import { Bot, Boxes, Sparkles, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { Bell, Bot, Boxes, Sparkles, Users, Wallet, type LucideIcon } from 'lucide-react';
 
 /** Apresentação de novidades mostrada depois do login. Troque VERSION a cada novo pacote de novidades para voltar a aparecer para quem marcou "não mostrar". */
-export const NEWS_VERSION = '2026-10';
+export const NEWS_VERSION = '2026-10-b';
 export interface Slide { icon: LucideIcon; title: string; lead: string; items?: { title: string; text: string }[] }
 
 export const SLIDES: Slide[] = [
   { icon: Sparkles, title: 'O Gentis está ganhando novas telas', lead: 'Em breve você vai encontrar novos itens no menu, marcados com "Em breve". Cada um mostra o que vai poder fazer. Eles ficam disponíveis assim que o administrador liberar, e o que você já usa continua igual.' },
+  { icon: Bell, title: 'Alertas de anomalia', lead: 'O sistema avisa quando algo foge do padrão, sem você precisar procurar.', items: [
+    { title: 'Despesas acima do normal', text: 'Uma categoria que gastou bem mais que a média dos últimos meses.' },
+    { title: 'Lançamentos fora do padrão', text: 'Valores muito acima do habitual e possíveis lançamentos duplicados.' },
+    { title: 'Estoque', text: 'Produtos saindo mais rápido que o normal, ajustes grandes e saldo negativo.' },
+    { title: 'Você decide', text: 'Cada alerta mostra o motivo e pode ser dispensado. Cada pessoa vê só as áreas que pode consultar.' },
+  ] },
   { icon: Bot, title: 'Assistente de IA', lead: 'Pergunte em linguagem do dia a dia e receba a resposta na hora.', items: [
     { title: 'Converse do seu jeito', text: '"Quanto gastei este mês?" ou "quais produtos estão acabando?"' },
     { title: 'Tabelas e gráficos', text: 'Respostas organizadas, com exportação para CSV.' },
