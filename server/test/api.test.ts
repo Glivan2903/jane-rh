@@ -1573,3 +1573,61 @@ test('importação de planilhas: prévia, criação, duplicados e permissões', 
   assert.equal((await con.post('/api/import/produtos/commit', { rows })).status, 403);
   assert.ok((await pool.query(`SELECT 1 FROM audit_logs WHERE action='importar'`)).rowCount! >= 2);
 });
+
+test('alertas de anomalia: detecta, respeita permissões, dispensa e resolve', async () => {
+  const admin = await login('admin@t.local'), con = await login('con@t.local'), est = await login('est@t.local'), fin = await login('fin@t.local'), rh = await login('rh@t.local');
+  const tag = String(Date.now()).slice(-6);
+  const cat = (await pool.query(`INSERT INTO financial_categories (name, type) VALUES ($1,'despesa') RETURNING id`, [`Anom ${tag}`])).rows[0].id;
+  const ins = (amount: number, monthsAgo: number, desc: string, party = 'Forn X', due = 0) => pool.query(
+    `INSERT INTO financial_transactions (type, description, category_id, party, amount, competence_date, due_date, status)
+     VALUES ('despesa',$1,$2,$3,$4, date_trunc('month', (now() AT TIME ZONE 'America/Sao_Paulo')::date) - ($5 || ' months')::interval + interval '9 days',
+             date_trunc('month', (now() AT TIME ZONE 'America/Sao_Paulo')::date) - ($5 || ' months')::interval + ($6 || ' days')::interval + interval '9 days','pendente')`, [desc, cat, party, amount, String(monthsAgo), String(due)]);
+  for (let m = 1; m <= 5; m++) await ins(1000 + m * 10, m, `Conta histórica ${m}`, `Hist ${m}`);
+  for (let i = 0; i < 3; i++) await ins(1000 + i, 0, `Conta atual ${i}`, `Atual ${i}`);          // mês atual: ~3.000 contra média ~850
+  await ins(250, 0, 'Dupla', 'Mesmo forn', 0); await ins(250, 0, 'Dupla', 'Mesmo forn', 3);  // possível duplicidade
+
+  const unit = (await pool.query(`SELECT id FROM units_of_measure LIMIT 1`)).rows[0].id;
+  await pool.query(`INSERT INTO settings (key, value) VALUES ('allow_negative_stock','true'::jsonb) ON CONFLICT (key) DO UPDATE SET value='true'::jsonb`);
+  const prod = (await pool.query(`INSERT INTO products (code, name, unit_id, quantity, active) VALUES ($1,$2,$3,-3,true) RETURNING id`, [`ANM-${tag}`, `Anom Produto ${tag}`, unit])).rows[0].id;
+  await pool.query(`UPDATE settings SET value='false'::jsonb WHERE key='allow_negative_stock'`);
+  const mv = (type: string, qty: number, delta: number, before: number, daysAgo: number) => pool.query(
+    `INSERT INTO stock_movements (product_id, type, quantity, delta, balance_before, balance_after, reason, movement_date) VALUES ($1,$2,$3,$4,$5,$6,'teste', (now() AT TIME ZONE 'America/Sao_Paulo')::date - $7::int)`,
+    [prod, type, qty, delta, before, before + delta, daysAgo]);
+  for (const d of [12, 20, 28, 36, 44]) await mv('saida', 4, -4, 100, d);   // média semanal ~2,5
+  await mv('saida', 30, -30, 100, 1);                                      // semana atual muito acima
+  await mv('ajuste', 40, -40, 100, 2);                                     // ajuste de 40%
+
+  const sc = await admin.post('/api/anomalies/scan', {});
+  assert.equal(sc.status, 200, JSON.stringify(sc.body));
+  const list = async (c: typeof admin, q = '') => (await c.get('/api/anomalies' + q)).body;
+  const a = await list(admin);
+  const kinds = a.rows.filter((r: any) => (r.title + r.detail).includes(tag) || r.detail.includes('Dupla') || r.title.includes(`Anom ${tag}`)).map((r: any) => r.kind);
+  for (const k of ['fin_categoria', 'fin_duplicado', 'est_saida', 'est_ajuste', 'est_negativo']) assert.ok(kinds.includes(k), `faltou ${k}: ${kinds}`);
+
+  // permissões por área
+  assert.ok((await list(est)).rows.every((r: any) => r.area === 'est') && (await list(est)).rows.length > 0);
+  assert.ok((await list(fin)).rows.every((r: any) => r.area === 'fin'));
+  assert.equal((await con.get('/api/anomalies')).status, 200);                     // consulta tem fin.view/est.view/rh.view
+  assert.equal((await fin.post('/api/anomalies/scan', {})).status, 403);
+
+  // sino
+  assert.ok((await admin.get('/api/dashboard/notices')).body.notices.some((n: any) => n.id === 'anom'));
+
+  // dispensar não volta no próximo scan; reabrir volta
+  const neg = a.rows.find((r: any) => r.kind === 'est_negativo' && r.detail.includes(`ANM-${tag}`));
+  assert.equal((await fin.post(`/api/anomalies/${neg.id}/dismiss`, {})).status, 404);   // fora da área
+  assert.equal((await est.post(`/api/anomalies/${neg.id}/dismiss`, {})).status, 200);
+  await admin.post('/api/anomalies/scan', {});
+  assert.ok(!(await list(admin)).rows.some((r: any) => r.id === neg.id));
+  assert.ok((await list(admin, '?status=dispensado')).rows.some((r: any) => r.id === neg.id));
+  assert.equal((await est.post(`/api/anomalies/${neg.id}/reopen`, {})).status, 200);
+  assert.ok((await list(admin)).rows.some((r: any) => r.id === neg.id));
+
+  // corrigindo a causa, o alerta é resolvido no scan seguinte
+  await pool.query(`UPDATE products SET quantity = 5 WHERE id=$1`, [prod]);
+  await admin.post('/api/anomalies/scan', {});
+  assert.ok(!(await list(admin)).rows.some((r: any) => r.id === neg.id));
+  assert.equal((await pool.query(`SELECT status FROM anomalies WHERE id=$1`, [neg.id])).rows[0].status, 'resolvido');
+  assert.ok((await pool.query(`SELECT 1 FROM audit_logs WHERE entity='anomaly' AND action='dispensar'`)).rowCount! >= 1);
+  void rh;
+});

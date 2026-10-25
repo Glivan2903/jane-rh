@@ -9,6 +9,7 @@ import { getSettings } from '../services/settings.js';
 import { TODAY_SQL } from '../services/finance.js';
 import { DOC_STATUS } from '../services/docs.js';
 import { BATCH_STATUS } from '../services/batches.js';
+import { ensureFreshScan } from '../services/anomalies.js';
 
 export const dashboardRouter = Router();
 
@@ -78,6 +79,14 @@ dashboardRouter.get('/notices', requireAuth(), h(async (req, res) => {
          FROM (SELECT ${BATCH_STATUS} AS s FROM stock_batches b JOIN products p ON p.id = b.product_id WHERE b.quantity > 0 AND p.active) x`)).rows[0];
     if (r.venc) out.push({ id: 'lote-v', text: `${r.venc} lote(s) de produtos vencido(s) em estoque`, to: '/estoque/lotes?status=vencido', tone: 'danger' });
     if (r.breve) out.push({ id: 'lote-b', text: `${r.breve} lote(s) de produtos a vencer`, to: '/estoque/lotes?status=a_vencer', tone: 'warning' });
+  }
+  if (st.notify_anomalies_enabled) {
+    void ensureFreshScan(6).catch(() => undefined);   // o sino também mantém a verificação em dia, sem agendador externo
+    const areas = [['fin', 'fin.view'], ['est', 'est.view'], ['rh', 'rh.view']].filter(([, p]) => hasPerm(req, p)).map(([a]) => a);
+    if (areas.length) {
+      const r = (await pool.query(`SELECT count(*)::int n, count(*) FILTER (WHERE severity='alerta')::int grave FROM anomalies WHERE status='aberto' AND area = ANY($1)`, [areas])).rows[0];
+      if (r.n) out.push({ id: 'anom', text: `${r.n} alerta(s) de anomalia para conferir`, to: '/alertas', tone: r.grave ? 'danger' : 'warning' });
+    }
   }
   res.json({ refreshMinutes: st.notify_refresh_minutes, notices: out });
 }));

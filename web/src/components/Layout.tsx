@@ -3,7 +3,8 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import gsap from 'gsap';
 import {
   Download, RefreshCw, WifiOff, Activity, AlertTriangle, Bot, Cake, CalendarClock, FileCheck2, ListChecks, ShoppingCart, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
-  ChevronDown, ChevronLeft, Landmark, Layers, LineChart, Link2, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon, FileSpreadsheet
+  ChevronDown, ChevronLeft, Landmark, Layers, LineChart, Link2, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon, FileSpreadsheet,
+  BellRing,
 } from 'lucide-react';
 import { useAuth, useTheme } from '../lib/app';
 import { shouldShowNews } from '../lib/news';
@@ -18,7 +19,7 @@ interface Item { to: string; label: string; icon: LucideIcon; perm?: string[]; e
 interface Group { label: string; icon: LucideIcon; perm: string[]; ai?: boolean; items: Item[] }
 
 const NAV: Group[] = [
-  { label: 'Geral', icon: LayoutDashboard, perm: ['dash.view'], items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
+  { label: 'Geral', icon: LayoutDashboard, perm: ['dash.view'], items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true }, { to: '/alertas', label: 'Alertas', icon: BellRing, perm: ['fin.view', 'est.view', 'rh.view'] }] },
   { label: 'Assistente', icon: Bot, perm: [], ai: true, items: [{ to: '/assistente', label: 'Assistente de IA', icon: Sparkles }] },
   { label: 'RH / Pessoal', icon: Users, perm: ['rh.view'], items: [
     { to: '/rh/funcionarios', label: 'Funcionários', icon: Users },

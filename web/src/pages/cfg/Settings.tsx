@@ -8,7 +8,7 @@ import { useFetch } from '../../lib/hooks';
 interface Prefs {
   allow_negative_stock: boolean;
   notify_bills_enabled: boolean; notify_bills_days: number; notify_overdue_enabled: boolean; notify_receivables: boolean;
-  notify_stock_enabled: boolean; notify_docs_enabled: boolean; notify_batches_enabled: boolean; batch_alert_days: number; notify_refresh_minutes: number; upcoming_list_size: number;
+  notify_stock_enabled: boolean; notify_docs_enabled: boolean; notify_batches_enabled: boolean; notify_anomalies_enabled: boolean; anomaly_sensitivity: number; batch_alert_days: number; notify_refresh_minutes: number; upcoming_list_size: number;
 }
 
 const Check = ({ checked, onChange, title, hint, disabled }: { checked: boolean; onChange: (v: boolean) => void; title: string; hint: string; disabled?: boolean }) => (
@@ -58,6 +58,12 @@ export default function Settings() {
             <Check checked={f.notify_docs_enabled} onChange={(v) => set('notify_docs_enabled', v)} title="Avisar documentos de funcionários" hint="Exibe no sino documentos vencidos e a vencer (para quem tem permissão de documentos do RH)." />
             <Check checked={f.notify_batches_enabled} onChange={(v) => set('notify_batches_enabled', v)} title="Avisar lotes vencidos ou a vencer" hint="Exibe no sino lotes de produtos com validade vencida ou perto de vencer." />
             <Num label="Antecedência do aviso de validade" suffix="dia(s) antes de vencer" min={1} max={365} value={f.batch_alert_days} onChange={(n) => set('batch_alert_days', n)} error={errs.batch_alert_days} hint={'Lotes que vencem dentro deste prazo aparecem como "a vencer".'} />
+            <Check checked={f.notify_anomalies_enabled} onChange={(v) => set('notify_anomalies_enabled', v)} title="Avisar valores e movimentos fora do padrão" hint="Mostra no sino os alertas de anomalia (despesas, lançamentos e movimentações de estoque acima do normal)." />
+            <label className="block text-sm"><span className="font-medium">Sensibilidade dos alertas de anomalia</span>
+              <select className="input mt-1 max-w-xs" value={f.anomaly_sensitivity} onChange={(e) => set('anomaly_sensitivity', Number(e.target.value))}>
+                <option value={1}>Baixa (só desvios grandes)</option><option value={2}>Média</option><option value={3}>Alta (mais alertas)</option>
+              </select>
+              <span className="mt-1 block text-xs text-muted-foreground">Vale na próxima verificação, que roda sozinha a cada poucas horas ou em Alertas → Verificar agora.</span></label>
             <Check checked={f.notify_stock_enabled} onChange={(v) => set('notify_stock_enabled', v)} title="Avisar estoque baixo ou zerado" hint="Exibe no sino produtos abaixo do estoque mínimo e sem estoque." />
             <Num label="Atualização das notificações" suffix="minuto(s)" min={1} max={60} value={f.notify_refresh_minutes} onChange={(n) => set('notify_refresh_minutes', n)} error={errs.notify_refresh_minutes}
               hint="De quanto em quanto tempo o sino consulta novos avisos." />

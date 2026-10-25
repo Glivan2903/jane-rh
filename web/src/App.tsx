@@ -11,6 +11,7 @@ import ResetPassword from './pages/ResetPassword';
 import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
 import Import from './pages/cad/Import';
+import Alerts from './pages/Alerts';
 
 const Employees = lazy(() => import('./pages/rh/Employees'));
 const EmployeeForm = lazy(() => import('./pages/rh/EmployeeForm'));
@@ -77,6 +78,7 @@ export default function App() {
             <Route path="/redefinir-senha" element={<ResetPassword />} />
             <Route element={<Protected><Layout /></Protected>}>
               <Route index element={g('dash.view', <Dashboard />)} />
+              <Route path="alertas" element={<Guard perm={['fin.view', 'est.view', 'rh.view']}><Alerts /></Guard>} />
               <Route path="perfil/senha" element={<ChangePassword />} />
               <Route path="rh/funcionarios" element={g('rh.view', <Employees />)} />
               <Route path="rh/funcionarios/novo" element={g('rh.create', <EmployeeForm />)} />
