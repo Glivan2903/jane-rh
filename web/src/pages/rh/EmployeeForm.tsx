@@ -12,7 +12,7 @@ const UFS = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO R
 const str = (v: unknown) => (v == null ? '' : String(v));
 
 const blank = {
-  fullName: '', cpf: '', pisPasep: '', payrollNumber: '', identifierNumber: '', transportVoucher: false, registration: '', birthDate: '', gender: '', maritalStatus: '',
+  fullName: '', cpf: '', pisPasep: '', payrollNumber: '', cbo: '', identifierNumber: '', transportVoucher: false, registration: '', birthDate: '', gender: '', maritalStatus: '',
   phone: '', phoneAlt: '', email: '', zip: '', street: '', number: '', complement: '', district: '', city: '', state: '', notes: '',
   positionId: '', departmentId: '', contractType: '', admissionDate: '', salary: '', workload: '', managerId: '', corporateEmail: '', corporatePhone: '', professionalNotes: '',
 };
@@ -96,6 +96,7 @@ export default function EmployeeForm() {
           <FInput f={f} name="registration" label="Matrícula interna" hint={editing ? undefined : 'Deixe em branco para gerar automaticamente.'} disabled={editing} />
           <FInput f={f} name="payrollNumber" label="Nº Folha" />
           <FInput f={f} name="identifierNumber" label="Nº Identificador" />
+          <FInput f={f} name="cbo" label="CBO" hint="Código da ocupação, 6 dígitos (ex.: 252105)." inputMode="numeric" maxLength={7} />
           <FSelect f={f} name="positionId" label="Cargo" options={opts(poss.data)} />
           <FSelect f={f} name="departmentId" label="Departamento / setor" options={opts(deps.data)} />
           <FSelect f={f} name="contractType" label="Tipo de vínculo" options={CONTRACTS.map((x) => ({ value: x, label: x }))} />

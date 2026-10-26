@@ -38,6 +38,7 @@ export const KINDS: Kind[] = [
     { key: 'admissionDate', label: 'Data de admissão', hint: 'dd/mm/aaaa (vazio = aguardando admissão)', names: ['data de admissao', 'admissao'], example: '01/02/2024' },
     { key: 'contractType', label: 'Tipo de vínculo', hint: 'CLT, PJ, Estágio, Temporário, Aprendiz, Autônomo, Outro', names: ['tipo de vinculo', 'vinculo', 'contrato'], example: 'CLT' },
     { key: 'salary', label: 'Salário', hint: 'Só é gravado com permissão de salário', names: ['salario', 'remuneracao'], example: '3500,00' },
+    { key: 'cbo', label: 'CBO', hint: '6 dígitos', names: ['cbo', 'codigo cbo'], example: '252105' },
     { key: 'registration', label: 'Matrícula', hint: 'Vazio = gerada automaticamente', names: ['matricula'], example: '' },
     { key: 'payrollNumber', label: 'Nº Folha', hint: '', names: ['n folha', 'no folha', 'numero da folha', 'folha'], example: '' },
     { key: 'pisPasep', label: 'PIS/PASEP', hint: '', names: ['pis/pasep', 'pis', 'pasep'], example: '' },
