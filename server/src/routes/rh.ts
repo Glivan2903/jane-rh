@@ -29,6 +29,7 @@ const employeeSchema = z.object({
   cpf: z.string({ required_error: 'Informe o CPF' }).refine(validCpf, 'CPF inválido'),
   pisPasep: nullable(z.string().transform(onlyDigits).refine((s) => s.length >= 10 && s.length <= 12, 'PIS/PASEP deve ter de 10 a 12 dígitos')),
   payrollNumber: optStr(30),
+  esocial: optStr(30),
   cbo: nullable(z.string().transform(onlyDigits).refine((s) => s.length === 6, 'CBO deve ter 6 dígitos')),
   identifierNumber: optStr(30),
   transportVoucher: z.boolean().default(false),
@@ -56,7 +57,7 @@ const employeeSchema = z.object({
 type EmployeeInput = z.infer<typeof employeeSchema>;
 
 const COLS: Record<keyof EmployeeInput, string> = {
-  fullName: 'full_name', cpf: 'cpf', pisPasep: 'pis_pasep', payrollNumber: 'payroll_number', cbo: 'cbo', identifierNumber: 'identifier_number',
+  fullName: 'full_name', cpf: 'cpf', pisPasep: 'pis_pasep', payrollNumber: 'payroll_number', cbo: 'cbo', esocial: 'esocial', identifierNumber: 'identifier_number',
   transportVoucher: 'transport_voucher', registration: 'registration', birthDate: 'birth_date', gender: 'gender', maritalStatus: 'marital_status',
   phone: 'phone', phoneAlt: 'phone_alt', email: 'email', zip: 'zip', street: 'street', number: 'number', complement: 'complement',
   district: 'district', city: 'city', state: 'state', notes: 'notes', positionId: 'position_id', departmentId: 'department_id',
@@ -64,7 +65,7 @@ const COLS: Record<keyof EmployeeInput, string> = {
   corporateEmail: 'corporate_email', corporatePhone: 'corporate_phone', professionalNotes: 'professional_notes',
 };
 const LABELS: Partial<Record<keyof EmployeeInput, string>> = {
-  fullName: 'nome', cpf: 'CPF', pisPasep: 'PIS/PASEP', payrollNumber: 'Nº Folha', cbo: 'CBO', identifierNumber: 'Nº Identificador',
+  fullName: 'nome', cpf: 'CPF', pisPasep: 'PIS/PASEP', payrollNumber: 'Nº Folha', cbo: 'CBO', esocial: 'eSocial', identifierNumber: 'Nº Identificador',
   transportVoucher: 'vale-transporte', birthDate: 'data de nascimento', gender: 'sexo', maritalStatus: 'estado civil', phone: 'telefone',
   phoneAlt: 'telefone alternativo', email: 'e-mail', zip: 'CEP', street: 'endereço', number: 'número', complement: 'complemento',
   district: 'bairro', city: 'cidade', state: 'UF', notes: 'observações', workload: 'jornada', managerId: 'gestor',
@@ -73,7 +74,7 @@ const LABELS: Partial<Record<keyof EmployeeInput, string>> = {
 };
 
 const SELECT = `
-  e.id, e.registration, e.payroll_number AS "payrollNumber", e.cbo, e.identifier_number AS "identifierNumber", e.pis_pasep AS "pisPasep",
+  e.id, e.registration, e.payroll_number AS "payrollNumber", e.cbo, e.esocial, e.identifier_number AS "identifierNumber", e.pis_pasep AS "pisPasep",
   e.transport_voucher AS "transportVoucher", e.full_name AS "fullName", e.cpf, e.birth_date AS "birthDate", e.gender, e.marital_status AS "maritalStatus",
   e.phone, e.phone_alt AS "phoneAlt", e.email, e.zip, e.street, e.number, e.complement, e.district, e.city, e.state, e.notes,
   e.position_id AS "positionId", jp.name AS position, e.department_id AS "departmentId", d.name AS department,
@@ -333,13 +334,13 @@ rhRouter.get('/reports/:name', requireAuth('rh.view', 'rh.export'), h(async (req
   const showSalary = name === 'cadastral' && hasPerm(req, 'rh.salary');
   const cols = [
     { key: 'registration', label: 'Matrícula' }, { key: 'payrollNumber', label: 'Nº Folha' }, { key: 'fullName', label: 'Nome' }, { key: 'cpf', label: 'CPF' },
-    { key: 'pisPasep', label: 'PIS/PASEP' }, { key: 'position', label: 'Cargo' }, { key: 'cbo', label: 'CBO' }, { key: 'department', label: 'Departamento' },
+    { key: 'pisPasep', label: 'PIS/PASEP' }, { key: 'position', label: 'Cargo' }, { key: 'cbo', label: 'CBO' }, { key: 'esocial', label: 'eSocial' }, { key: 'department', label: 'Departamento' },
     { key: 'admission', label: 'Admissão' }, ...(name.startsWith('deslig') ? [{ key: 'termination', label: 'Desligamento' }, { key: 'reason', label: 'Motivo' }] : []),
     { key: 'status', label: 'Situação' },
     ...(name === 'cadastral' ? [{ key: 'contractType', label: 'Vínculo' }, { key: 'transportVoucher', label: 'Vale-transporte' }, { key: 'phone', label: 'Telefone' }, { key: 'email', label: 'E-mail' }, { key: 'birth', label: 'Nascimento' }, { key: 'city', label: 'Cidade/UF' }, ...(showSalary ? [{ key: 'salary', label: 'Salário' }] : [])] : []),
   ];
   const rows = (await pool.query(
-    `SELECT e.registration, e.payroll_number AS "payrollNumber", e.full_name AS "fullName", e.cpf, e.pis_pasep AS "pisPasep", e.cbo,
+    `SELECT e.registration, e.payroll_number AS "payrollNumber", e.full_name AS "fullName", e.cpf, e.pis_pasep AS "pisPasep", e.cbo, e.esocial,
             jp.name AS position, d.name AS department, ${fmtd('e.admission_date')} AS admission, ${fmtd('e.termination_date')} AS termination,
             e.termination_reason AS reason, e.status, e.contract_type AS "contractType",
             CASE WHEN e.transport_voucher THEN 'Sim' ELSE 'Não' END AS "transportVoucher", e.phone, e.email, ${fmtd('e.birth_date')} AS birth,
