@@ -96,7 +96,7 @@ export default function EmployeeForm() {
           <FInput f={f} name="registration" label="Matrícula interna" hint={editing ? undefined : 'Deixe em branco para gerar automaticamente.'} disabled={editing} />
           <FInput f={f} name="payrollNumber" label="Nº Folha" />
           <FInput f={f} name="identifierNumber" label="Nº Identificador" />
-          <FInput f={f} name="cbo" label="CBO" hint="Código da ocupação, 6 dígitos (ex.: 252105)." inputMode="numeric" maxLength={7} />
+          <FInput f={f} name="cbo" label="CBO" mask={(v) => onlyDigits(v).slice(0, 6)} placeholder="000000" hint="Código da ocupação, 6 dígitos." />
           <FSelect f={f} name="positionId" label="Cargo" options={opts(poss.data)} />
           <FSelect f={f} name="departmentId" label="Departamento / setor" options={opts(deps.data)} />
           <FSelect f={f} name="contractType" label="Tipo de vínculo" options={CONTRACTS.map((x) => ({ value: x, label: x }))} />
