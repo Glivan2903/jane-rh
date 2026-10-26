@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { Eye, Pencil, Plus, Trash2, UserCheck, UserMinus, UserPlus } from 'lucide-react';
+import { Eye, FileSpreadsheet, Pencil, Plus, Trash2, UserCheck, UserMinus, UserPlus } from 'lucide-react';
+import { ImportModal } from '../cad/Import';
 import { AdmissionModal, TerminationModal, type EmpRef } from './Processes';
 import { Badge, DataTable, Empty, PageHeader, type Col } from '../../components/ui';
 import { FilterBar, FilterDate, FilterSelect, SearchBox } from '../../components/forms';
@@ -21,6 +22,7 @@ export default function Employees() {
   const [from, setFrom] = useState(''); const [to, setTo] = useState('');
   const deps = useFetch<{ id: number; name: string }[]>('/rh/departments', { active: 'true' });
   const poss = useFetch<{ id: number; name: string }[]>('/rh/positions', { active: 'true' });
+  const [importing, setImporting] = useState(false);
   const [act, setAct] = useState<{ kind: 'adm' | 'term'; emp: EmpRef } | null>(null);
   const t = useList<Employee>('/rh/employees', { sort: 'name', filters: { status, departmentId: dep, positionId: pos, admissionFrom: from, admissionTo: to } });
 
@@ -48,10 +50,13 @@ export default function Employees() {
       </div>) },
   ];
   const addBtn = can('rh.create') && <Link to="/rh/funcionarios/novo" className="btn-primary"><Plus className="h-4 w-4" />Novo funcionário</Link>;
+  const topBtns = can('rh.create') && <>
+    <button className="btn-outline" onClick={() => setImporting(true)}><FileSpreadsheet className="h-4 w-4" />Importar planilha</button>{addBtn}
+  </>;
 
   return (
     <div>
-      <PageHeader title="Funcionários" subtitle="Cadastro e controle administrativo de pessoal." actions={addBtn} />
+      <PageHeader title="Funcionários" subtitle="Cadastro e controle administrativo de pessoal." actions={topBtns} />
       <FilterBar>
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar nome, CPF, cargo, departamento…" />
         <FilterSelect label="Situação" placeholder="Situação" value={status} onChange={setStatus} options={[{ value: 'ativo', label: 'Ativos' }, { value: 'desligado', label: 'Desligados' }, { value: 'pre_cadastro', label: 'Aguardando admissão' }, { value: 'todos', label: 'Todos' }]} />
@@ -62,6 +67,7 @@ export default function Employees() {
       <DataTable<Employee> cols={cols} rows={t.rows} loading={t.loading} error={t.error} onRetry={t.reload} list={t.list}
         empty={<Empty icon={UserPlus} title={t.q || dep || pos || from || to || status !== 'todos' ? 'Nenhum funcionário encontrado' : 'Nenhum funcionário cadastrado'}
           hint={t.q ? 'Revise a busca ou os filtros.' : 'Comece cadastrando o primeiro funcionário.'} action={addBtn} />} />
+      {importing && <ImportModal kindId="funcionarios" onClose={() => setImporting(false)} onImported={t.reload} />}
       {act?.kind === 'adm' && <AdmissionModal emp={act.emp} onClose={() => setAct(null)} onDone={() => { setAct(null); t.reload(); }} />}
       {act?.kind === 'term' && <TerminationModal emp={act.emp} onClose={() => setAct(null)} onDone={() => { setAct(null); t.reload(); }} />}
     </div>

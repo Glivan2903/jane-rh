@@ -113,7 +113,7 @@ export default function App() {
               <Route path="assistente" element={<Assistant />} />
               <Route path="config/assistente-ia" element={g('cfg.users', <AiAccess />)} />
               <Route path="cadastros/parceiros" element={g('cad.view', <Parties />)} />
-              <Route path="cadastros/importar" element={<Guard perm={['est.create', 'cad.create']}><Import /></Guard>} />
+              <Route path="cadastros/importar" element={<Guard perm={['est.create', 'cad.create', 'rh.create']}><Import /></Guard>} />
               <Route path="config/empresa" element={g('cfg.settings', <CompanyPage />)} />
               <Route path="config/usuarios" element={g('cfg.users', <Users />)} />
               <Route path="config/perfis" element={g('cfg.roles', <Roles />)} />

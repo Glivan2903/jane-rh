@@ -50,7 +50,7 @@ const NAV: Group[] = [
   ] },
   { label: 'Cadastros', icon: Users, perm: ['cad.view', 'cad.create', 'est.create'], items: [
     { to: '/cadastros/parceiros', label: 'Clientes e fornecedores', icon: HandCoins, perm: ['cad.view'] },
-    { to: '/cadastros/importar', label: 'Importar planilhas', icon: FileSpreadsheet, perm: ['cad.create', 'est.create'] },
+    { to: '/cadastros/importar', label: 'Importar planilhas', icon: FileSpreadsheet, perm: ['cad.create', 'est.create', 'rh.create'] },
   ] },
   { label: 'Configurações', icon: Settings, perm: ['cfg.users', 'cfg.roles', 'cfg.audit', 'cfg.backup', 'cfg.settings'], items: [
     { to: '/config/empresa', label: 'Dados da empresa', icon: Building2, perm: ['cfg.settings'] },

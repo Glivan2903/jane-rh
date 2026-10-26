@@ -117,7 +117,86 @@ const partyEntity: Entity = {
   },
 };
 
-const ENTITIES: Record<string, Entity> = { produtos: productEntity, parceiros: partyEntity };
+/** "31/12/2024", "31-12-24" e "2024-12-31" viram 'YYYY-MM-DD'; vazio vira null; ilegível vira undefined. */
+function dateOf(raw: string): string | null | undefined {
+  const s = raw.trim(); if (!s) return null;
+  let y: number, m: number, d: number;
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s); const br = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(s);
+  if (iso) [y, m, d] = [+iso[1], +iso[2], +iso[3]];
+  else if (br) { [d, m, y] = [+br[1], +br[2], +br[3]]; if (y < 100) y += y > 50 ? 1900 : 2000; }
+  else return undefined;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return undefined;
+  return dt.toISOString().slice(0, 10);
+}
+const CONTRACTS = ['CLT', 'PJ', 'Estágio', 'Temporário', 'Aprendiz', 'Autônomo', 'Outro'];
+
+const employeeEntity: Entity = {
+  perms: ['rh.create'], module: 'rh', label: 'Funcionários',
+  async prepare(c) {
+    const rows = (await c.query('SELECT cpf, registration, payroll_number pn, pis_pasep pis FROM employees')).rows;
+    return {
+      cpfs: new Set(rows.map((x: any) => x.cpf)), regs: new Set(rows.map((x: any) => norm(x.registration))),
+      payrolls: new Set(rows.filter((x: any) => x.pn).map((x: any) => norm(x.pn))), pis: new Set(rows.filter((x: any) => x.pis).map((x: any) => x.pis)),
+      positions: new Map((await c.query('SELECT id, name FROM job_positions WHERE active')).rows.map((x: any) => [norm(x.name), x.id])),
+      departments: new Map((await c.query('SELECT id, name FROM departments WHERE active')).rows.map((x: any) => [norm(x.name), x.id])),
+    };
+  },
+  check(row, ctx, seen) {
+    const err = (message: string) => ({ r: { status: 'erro' as const, message } });
+    const name = str(row.fullName);
+    if (!name) return err('Informe o nome completo'); if (name.length > 150) return err('Nome com mais de 150 caracteres');
+    if (name.split(/\s+/).length < 2) return err('Informe nome e sobrenome');
+    const cpf = onlyDigits(str(row.cpf));
+    if (!cpf) return err('Informe o CPF'); if (!validCpf(cpf)) return err('CPF inválido');
+    if (ctx.cpfs.has(cpf)) return { r: { status: 'duplicado' as const, message: 'CPF já cadastrado' } };
+    if (seen.has('c:' + cpf)) return { r: { status: 'duplicado' as const, message: 'CPF repetido na planilha' } };
+    const email = str(row.email).toLowerCase();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err('E-mail inválido');
+    const pis = onlyDigits(str(row.pisPasep));
+    if (pis && (pis.length < 10 || pis.length > 12)) return err('PIS/PASEP deve ter de 10 a 12 dígitos');
+    if (pis && (ctx.pis.has(pis) || seen.has('p:' + pis))) return err('PIS/PASEP já cadastrado');
+    const reg = str(row.registration).slice(0, 30);
+    if (reg && (ctx.regs.has(norm(reg)) || seen.has('r:' + norm(reg)))) return err('Matrícula já em uso');
+    const pn = str(row.payrollNumber).slice(0, 30);
+    if (pn && (ctx.payrolls.has(norm(pn)) || seen.has('f:' + norm(pn)))) return err('Nº Folha já cadastrado');
+    const birthDate = dateOf(str(row.birthDate)); if (birthDate === undefined || (birthDate && birthDate >= today())) return err('Data de nascimento inválida (use dd/mm/aaaa)');
+    const admissionDate = dateOf(str(row.admissionDate)); if (admissionDate === undefined) return err('Data de admissão inválida (use dd/mm/aaaa)');
+    if (admissionDate && admissionDate > today()) return err('Data de admissão não pode ser futura');
+    const posTxt = str(row.position); const positionId = posTxt ? ctx.positions.get(norm(posTxt)) : null;
+    if (posTxt && !positionId) return err(`Cargo "${posTxt}" não cadastrado`);
+    const depTxt = str(row.department); const departmentId = depTxt ? ctx.departments.get(norm(depTxt)) : null;
+    if (depTxt && !departmentId) return err(`Departamento "${depTxt}" não cadastrado`);
+    const ctTxt = str(row.contractType); const contractType = ctTxt ? CONTRACTS.find((x) => norm(x) === norm(ctTxt)) : null;
+    if (ctTxt && !contractType) return err(`Tipo de vínculo "${ctTxt}" inválido (${CONTRACTS.join(', ')})`);
+    const salary = num(str(row.salary)); if (Number.isNaN(salary) || (salary !== null && (salary < 0 || salary > 999999999))) return err('Salário inválido');
+    const state = str(row.state).toUpperCase();
+    if (state && !/^(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/.test(state)) return err('UF inválida');
+    seen.add('c:' + cpf); if (pis) seen.add('p:' + pis); if (reg) seen.add('r:' + norm(reg)); if (pn) seen.add('f:' + norm(pn));
+    const vt = norm(str(row.transportVoucher));
+    return { r: { status: 'ok' as const, message: admissionDate ? 'Entra como ativo (admitido)' : 'Entra como aguardando admissão' },
+      data: { name, cpf, email: email || null, pis: pis || null, reg: reg || null, pn: pn || null, birthDate, admissionDate, positionId: positionId ?? null, departmentId: departmentId ?? null,
+        contractType: contractType ?? null, salary, phone: str(row.phone).slice(0, 30) || null, city: str(row.city).slice(0, 100) || null, state: state || null,
+        transportVoucher: /^(s|sim|x|1|true|verdadeiro)$/.test(vt) } };
+  },
+  async insert(c, req, d) {
+    const reg = d.reg || `M${String((await c.query(`SELECT nextval('employee_registration_seq') n`)).rows[0].n).padStart(6, '0')}`;
+    const admitting = !!d.admissionDate;
+    const salary = hasPerm(req, 'rh.salary') ? d.salary : null;
+    const id = (await c.query(
+      `INSERT INTO employees (registration, full_name, cpf, email, pis_pasep, payroll_number, birth_date, admission_date, position_id, department_id, contract_type, salary, phone, city, state, transport_voucher, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+      [reg, d.name, d.cpf, d.email, d.pis, d.pn, d.birthDate, d.admissionDate, d.positionId, d.departmentId, d.contractType, salary, d.phone, d.city, d.state, d.transportVoucher, admitting ? 'ativo' : 'pre_cadastro'])).rows[0].id as string;
+    const hist = (type: string, description: string, data?: object) => c.query(
+      `INSERT INTO employment_history (employee_id, event_type, description, data, user_id, user_name) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id, type, description, data ? JSON.stringify(data) : null, req.user!.id, req.user!.name]);
+    await hist('cadastro', 'Cadastro inicial do funcionário (importação de planilha)');
+    if (admitting) await hist('admissao', `Admissão em ${d.admissionDate.split('-').reverse().join('/')}`, { admissionDate: d.admissionDate, positionId: d.positionId, departmentId: d.departmentId, contractType: d.contractType, salary });
+    await audit(req, { action: admitting ? 'cadastrar_admitir' : 'criar', module: 'rh', entity: 'employee', entityId: id, summary: `Funcionário importado${admitting ? ' e admitido' : ''}: ${d.name}` }, c);
+  },
+};
+
+const ENTITIES: Record<string, Entity> = { produtos: productEntity, parceiros: partyEntity, funcionarios: employeeEntity };
 
 function entityOf(req: Request) {
   const e = ENTITIES[String(req.params.entity)];
@@ -136,6 +215,7 @@ function evaluate(e: Entity, ctx: unknown, rows: Row[], req: Request) {
   const canMove = hasPerm(req, 'est.move');
   for (const row of rows) {
     const x = e.check(row, ctx, seen);
+    if (x.r.status === 'ok' && e === employeeEntity && x.data.admissionDate && !hasPerm(req, 'rh.admit')) { out.push({ r: { status: 'erro', message: 'Sem permissão para registrar admissão (deixe a data de admissão em branco)' } }); continue; }
     if (x.r.status === 'ok' && e === productEntity && x.data.quantity > 0 && !canMove) out.push({ r: { status: 'erro', message: 'Sem permissão para lançar saldo inicial' } });
     else out.push(x);
   }

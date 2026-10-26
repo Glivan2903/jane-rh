@@ -1,13 +1,13 @@
 import { useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Download, FileSpreadsheet, Upload } from 'lucide-react';
-import { Badge, PageHeader } from '../../components/ui';
+import { Badge, Modal, PageHeader } from '../../components/ui';
 import { api } from '../../lib/api';
 import { errMsg, useAuth, useToast } from '../../lib/app';
 import { downloadCsv, readSheet, type Sheet } from '../../lib/sheet';
 
 interface Field { key: string; label: string; required?: boolean; hint: string; names: string[]; example: string }
-interface Kind { id: string; title: string; perm: string; blurb: string; fields: Field[] }
-const KINDS: Kind[] = [
+export interface Kind { id: string; title: string; perm: string; blurb: string; fields: Field[] }
+export const KINDS: Kind[] = [
   { id: 'produtos', title: 'Produtos', perm: 'est.create', blurb: 'Cadastra produtos novos. Quem já existe (mesmo nome ou código de barras) é ignorado.', fields: [
     { key: 'name', label: 'Nome', required: true, hint: 'Nome do produto', names: ['nome', 'produto', 'descricao', 'item'], example: 'Papel A4 75g' },
     { key: 'unit', label: 'Unidade', required: true, hint: 'UN, CX, KG… (já cadastrada)', names: ['unidade', 'un', 'und', 'medida'], example: 'CX' },
@@ -27,22 +27,37 @@ const KINDS: Kind[] = [
     { key: 'phone', label: 'Telefone', hint: '', names: ['telefone', 'celular', 'fone', 'whatsapp'], example: '(11) 99999-0000' },
     { key: 'notes', label: 'Observações', hint: '', names: ['observacoes', 'obs', 'notas'], example: '' },
   ] },
-];
+  { id: 'funcionarios', title: 'Funcionários', perm: 'rh.create', blurb: 'Cadastra funcionários novos. Quem já existe (mesmo CPF) é ignorado. Com data de admissão o funcionário entra como ativo; sem data, como aguardando admissão. Cargo e departamento precisam já estar cadastrados.', fields: [
+    { key: 'fullName', label: 'Nome completo', required: true, hint: 'Nome e sobrenome', names: ['nome completo', 'nome', 'funcionario', 'colaborador'], example: 'Maria da Silva' },
+    { key: 'cpf', label: 'CPF', required: true, hint: 'Com ou sem pontuação', names: ['cpf', 'documento'], example: '529.982.247-25' },
+    { key: 'phone', label: 'Telefone', hint: '', names: ['telefone', 'celular', 'fone', 'whatsapp'], example: '(11) 99999-0000' },
+    { key: 'email', label: 'E-mail', hint: '', names: ['email', 'e-mail'], example: 'maria@empresa.com.br' },
+    { key: 'birthDate', label: 'Data de nascimento', hint: 'dd/mm/aaaa', names: ['data de nascimento', 'nascimento'], example: '15/03/1990' },
+    { key: 'position', label: 'Cargo', hint: 'Já cadastrado', names: ['cargo', 'funcao'], example: 'Analista' },
+    { key: 'department', label: 'Departamento', hint: 'Já cadastrado', names: ['departamento', 'setor', 'area'], example: 'Financeiro' },
+    { key: 'admissionDate', label: 'Data de admissão', hint: 'dd/mm/aaaa (vazio = aguardando admissão)', names: ['data de admissao', 'admissao'], example: '01/02/2024' },
+    { key: 'contractType', label: 'Tipo de vínculo', hint: 'CLT, PJ, Estágio, Temporário, Aprendiz, Autônomo, Outro', names: ['tipo de vinculo', 'vinculo', 'contrato'], example: 'CLT' },
+    { key: 'salary', label: 'Salário', hint: 'Só é gravado com permissão de salário', names: ['salario', 'remuneracao'], example: '3500,00' },
+    { key: 'registration', label: 'Matrícula', hint: 'Vazio = gerada automaticamente', names: ['matricula'], example: '' },
+    { key: 'payrollNumber', label: 'Nº Folha', hint: '', names: ['n folha', 'no folha', 'numero da folha', 'folha'], example: '' },
+    { key: 'pisPasep', label: 'PIS/PASEP', hint: '', names: ['pis/pasep', 'pis', 'pasep'], example: '' },
+    { key: 'transportVoucher', label: 'Vale-transporte', hint: 'Sim ou Não', names: ['vale-transporte', 'vale transporte', 'vt'], example: 'Sim' },
+    { key: 'city', label: 'Cidade', hint: '', names: ['cidade', 'municipio'], example: 'São Paulo' },
+    { key: 'state', label: 'UF', hint: '', names: ['uf', 'estado'], example: 'SP' },
+  ] },
+]
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 interface Line { line: number; status: 'ok' | 'duplicado' | 'erro'; message: string }
 interface Preview { ok: number; duplicado: number; erro: number; rows: Line[] }
 
-export default function Import() {
-  const { can } = useAuth();
+/** Importação de uma planilha para um tipo de cadastro. Usada na página de importação e dentro dos módulos. */
+export function ImportTool({ kind, onImported }: { kind: Kind; onImported?: () => void }) {
   const toast = useToast(); const input = useRef<HTMLInputElement>(null);
-  const kinds = KINDS.filter((k) => can(k.perm));
-  const [kindId, setKindId] = useState(kinds[0]?.id ?? 'produtos'); const kind = KINDS.find((k) => k.id === kindId)!;
   const [sheet, setSheet] = useState<Sheet | null>(null); const [fileName, setFileName] = useState('');
   const [map, setMap] = useState<Record<string, number>>({}); const [prev, setPrev] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false); const [done, setDone] = useState<{ ok: number; duplicado: number; erro: number } | null>(null);
 
   const reset = () => { setSheet(null); setFileName(''); setMap({}); setPrev(null); setDone(null); if (input.current) input.current.value = ''; };
-  const pick = (id: string) => { setKindId(id); reset(); };
   const autoMap = (k: Kind, s: Sheet) => {
     const heads = s.headers.map(norm); const m: Record<string, number> = {};
     for (const f of k.fields) { const i = heads.findIndex((h) => f.names.includes(h)); if (i >= 0) m[f.key] = i; }
@@ -61,21 +76,15 @@ export default function Import() {
   };
   const commit = async () => {
     setBusy(true);
-    try { const r = await api.post<{ ok: number; duplicado: number; erro: number }>(`/import/${kind.id}/commit`, { rows: payload }); setDone(r); setPrev(null); toast.success(`${r.ok} registro(s) importado(s).`); }
+    try { const r = await api.post<{ ok: number; duplicado: number; erro: number }>(`/import/${kind.id}/commit`, { rows: payload }); setDone(r); setPrev(null); if (r.ok > 0) onImported?.(); toast.success(`${r.ok} registro(s) importado(s).`); }
     catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
   };
   const model = () => downloadCsv(`modelo-${kind.id}.csv`, [kind.fields.map((f) => f.label), kind.fields.map((f) => f.example)]);
   const tone = { ok: 'success', duplicado: 'neutral', erro: 'danger' } as const;
   const word = { ok: 'Será criado', duplicado: 'Ignorado', erro: 'Com erro' } as const;
 
-  if (!kinds.length) return <p className="py-10 text-center text-muted-foreground">Você não tem permissão para importar planilhas.</p>;
   return (
-    <div>
-      <PageHeader title="Importar planilhas" subtitle="Traga produtos e cadastros de uma planilha Excel ou CSV" icon={FileSpreadsheet} />
-      <div className="mb-4 flex flex-wrap gap-2">
-        {kinds.map((k) => <button key={k.id} type="button" onClick={() => pick(k.id)} className={k.id === kindId ? 'btn-primary' : 'btn-outline'}>{k.title}</button>)}
-      </div>
-      <div className="card space-y-4 p-4 sm:p-5">
+    <div className="space-y-4">
         <p className="text-sm text-muted-foreground">{kind.blurb} Nada que já está cadastrado é alterado.</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn-outline" onClick={model}><Download className="h-4 w-4" /> Baixar planilha modelo</button>
@@ -133,7 +142,28 @@ export default function Import() {
               <button type="button" className="btn-outline mt-3" onClick={reset}>Importar outra planilha</button></div>
           </div>
         )}
+    </div>
+  );
+}
+
+/** Janela de importação aberta a partir de um módulo (Produtos, Funcionários). */
+export function ImportModal({ kindId, onClose, onImported }: { kindId: string; onClose: () => void; onImported?: () => void }) {
+  const kind = KINDS.find((k) => k.id === kindId)!;
+  return <Modal title={`Importar ${kind.title.toLowerCase()} de planilha`} size="xl" onClose={onClose}><ImportTool kind={kind} onImported={onImported} /></Modal>;
+}
+
+export default function Import() {
+  const { can } = useAuth();
+  const kinds = KINDS.filter((k) => can(k.perm));
+  const [kindId, setKindId] = useState(kinds[0]?.id ?? 'produtos'); const kind = KINDS.find((k) => k.id === kindId)!;
+  if (!kinds.length) return <p className="py-10 text-center text-muted-foreground">Você não tem permissão para importar planilhas.</p>;
+  return (
+    <div>
+      <PageHeader title="Importar planilhas" subtitle="Traga produtos, funcionários e cadastros de uma planilha Excel ou CSV" icon={FileSpreadsheet} />
+      <div className="mb-4 flex flex-wrap gap-2">
+        {kinds.map((k) => <button key={k.id} type="button" onClick={() => setKindId(k.id)} className={k.id === kindId ? 'btn-primary' : 'btn-outline'}>{k.title}</button>)}
       </div>
+      <div className="card p-4 sm:p-5"><ImportTool key={kind.id} kind={kind} /></div>
     </div>
   );
 }

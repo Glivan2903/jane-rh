@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Eye, Package, Pencil, Plus, Scale, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Eye, FileSpreadsheet, Package, Pencil, Plus, Scale, Trash2 } from 'lucide-react';
 import { MovementModal, type Kind, type ProdRef } from './MovementModal';
 import { ScanButton } from '../../components/BarcodeScanner';
 import { Link } from 'react-router-dom';
+import { ImportModal } from '../cad/Import';
 import { Badge, DataTable, Empty, Modal, PageHeader, type Col, type Tone } from '../../components/ui';
 import { FCheck, FilterBar, FilterSelect, FInput, FSelect, FTextarea, SearchBox, SubmitButton } from '../../components/forms';
 import { api } from '../../lib/api';
@@ -68,7 +69,7 @@ function ProductForm({ row, onClose, onSaved }: { row: Product | null; onClose: 
 export default function Products() {
   const { can } = useAuth(); const toast = useToast(); const confirm = useConfirm(); const [sp] = useSearchParams();
   const [cat, setCat] = useState(''); const [st, setSt] = useState(sp.get('stockStatus') ?? ''); const [active, setActive] = useState('');
-  const [edit, setEdit] = useState<Product | 'new' | null>(null);
+  const [edit, setEdit] = useState<Product | 'new' | null>(null); const [importing, setImporting] = useState(false);
   const [mv, setMv] = useState<{ kind: Kind; product?: ProdRef } | null>(null);
   const cats = useFetch<{ id: number; name: string }[]>('/est/categories');
   const alerts = useFetch<{ id: string; code: string; name: string; quantity: string; minStock: string; unit: string; status: string }[]>('/est/alerts');
@@ -102,6 +103,7 @@ export default function Products() {
   const topActions = <>
     {can('est.move') && <button className="btn-outline" onClick={() => setMv({ kind: 'entrada' })}><ArrowDownToLine className="h-4 w-4 text-success" />Entrada</button>}
     {can('est.move') && <button className="btn-outline" onClick={() => setMv({ kind: 'saida' })}><ArrowUpFromLine className="h-4 w-4 text-danger" />Saída</button>}
+    {can('est.create') && <button className="btn-outline" onClick={() => setImporting(true)}><FileSpreadsheet className="h-4 w-4" />Importar planilha</button>}
     {add}
   </>;
   const al = alerts.data ?? [];
@@ -124,6 +126,7 @@ export default function Products() {
       <DataTable<Product> cols={cols} rows={t.rows} loading={t.loading} error={t.error} onRetry={t.reload} list={t.list}
         empty={<Empty icon={Package} title={t.q || cat || st || active ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'} hint="Cadastre o primeiro produto para começar a controlar o estoque." action={add} />} />
       {edit && <ProductForm row={edit === 'new' ? null : edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); t.reload(); alerts.reload(); }} />}
+      {importing && <ImportModal kindId="produtos" onClose={() => setImporting(false)} onImported={t.reload} />}
       {mv && <MovementModal kind={mv.kind} product={mv.product} onClose={() => setMv(null)} onDone={() => { setMv(null); t.reload(); alerts.reload(); }} />}
     </div>
   );
