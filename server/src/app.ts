@@ -14,13 +14,21 @@ import { finRouter } from './routes/fin.js';
 import { estRouter } from './routes/est.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { companyRouter } from './routes/company.js';
+import { cadRouter } from './routes/cad.js';
+import { bankingRouter } from './routes/banking.js';
+import { aiRouter } from './routes/ai.js';
+import { importRouter } from './routes/import.js';
+import { anomaliesRouter } from './routes/anomalies.js';
+import { suggestionsRouter } from './routes/suggestions.js';
+import { rhDocsRouter } from './routes/rhdocs.js';
+import { estxRouter } from './routes/estx.js';
 
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', isProd ? 1 : false);
   app.use(helmet({ contentSecurityPolicy: isProd ? undefined : false }));
-  app.use(express.json({ limit: '200kb' }));
+  app.use(express.json({ limit: '2mb' }));
   app.use(cookieParser());
 
   // CSRF: cookie SameSite=Strict + cabeçalho customizado obrigatório em operações que alteram dados.
@@ -37,10 +45,18 @@ export function createApp() {
   app.use('/api/config', configRouter);
   app.use('/api/config/backups', backupRouter);
   app.use('/api/rh', rhRouter);
+  app.use('/api/rh', rhDocsRouter);
   app.use('/api/fin', finRouter);
+  app.use('/api/fin', bankingRouter);
+  app.use('/api/est', estxRouter);          // antes do estRouter: '/products/lookup' não pode cair em '/products/:id'
   app.use('/api/est', estRouter);
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/company', companyRouter);
+  app.use('/api/cad', cadRouter);
+  app.use('/api/ai', aiRouter);
+  app.use('/api/import', importRouter);
+  app.use('/api/anomalies', anomaliesRouter);
+  app.use('/api/suggestions', suggestionsRouter);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Recurso não encontrado')));
 
   // Produção: serve o frontend compilado (mesma origem).

@@ -6,23 +6,39 @@ import { ErrorBox, Spinner } from './components/ui';
 import { WifiOff } from 'lucide-react';
 import Login from './pages/Login';
 import Setup from './pages/Setup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
-import ComingSoon from './pages/ComingSoon';
+import Import from './pages/cad/Import';
+import Alerts from './pages/Alerts';
 
 const Employees = lazy(() => import('./pages/rh/Employees'));
 const EmployeeForm = lazy(() => import('./pages/rh/EmployeeForm'));
 const EmployeeDetail = lazy(() => import('./pages/rh/EmployeeDetail'));
+const Celebrations = lazy(() => import('./pages/rh/Celebrations'));
+const RhDocuments = lazy(() => import('./pages/rh/Documents'));
 const RhReports = lazy(() => import('./pages/rh/Reports'));
 const RhCatalogs = lazy(() => import('./pages/rh/Processes').then((m) => ({ default: m.RhCatalogs })));
 const FinOverview = lazy(() => import('./pages/fin/Overview'));
 const Transactions = lazy(() => import('./pages/fin/Transactions'));
+const Accounts = lazy(() => import('./pages/fin/Accounts'));
+const CashFlow = lazy(() => import('./pages/fin/CashFlow'));
+const Reconcile = lazy(() => import('./pages/fin/Reconcile'));
+const CostCenters = lazy(() => import('./pages/fin/CostCenters'));
 const Categories = lazy(() => import('./pages/fin/Categories'));
 const FinReports = lazy(() => import('./pages/fin/Reports'));
 const Products = lazy(() => import('./pages/est/Products'));
+const Orders = lazy(() => import('./pages/est/Orders'));
+const Inventory = lazy(() => import('./pages/est/Inventory'));
+const InventoryDetail = lazy(() => import('./pages/est/InventoryDetail'));
+const Batches = lazy(() => import('./pages/est/Batches'));
 const Movements = lazy(() => import('./pages/est/Movements'));
 const EstCatalogs = lazy(() => import('./pages/est/Misc').then((m) => ({ default: m.EstCatalogs })));
 const EstReports = lazy(() => import('./pages/est/Misc').then((m) => ({ default: m.EstReports })));
+const Parties = lazy(() => import('./pages/cad/Parties'));
+const Assistant = lazy(() => import('./pages/ai/Assistant'));
+const AiAccess = lazy(() => import('./pages/cfg/AiAccess'));
 const Users = lazy(() => import('./pages/cfg/Users'));
 const Roles = lazy(() => import('./pages/cfg/Roles'));
 const Audit = lazy(() => import('./pages/cfg/Audit'));
@@ -58,8 +74,11 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/configurar" element={<Setup />} />
+            <Route path="/esqueci-senha" element={<ForgotPassword />} />
+            <Route path="/redefinir-senha" element={<ResetPassword />} />
             <Route element={<Protected><Layout /></Protected>}>
               <Route index element={g('dash.view', <Dashboard />)} />
+              <Route path="alertas" element={<Guard perm={['fin.view', 'est.view', 'rh.view']}><Alerts /></Guard>} />
               <Route path="perfil/senha" element={<ChangePassword />} />
               <Route path="rh/funcionarios" element={g('rh.view', <Employees />)} />
               <Route path="rh/funcionarios/novo" element={g('rh.create', <EmployeeForm />)} />
@@ -67,33 +86,34 @@ export default function App() {
               <Route path="rh/funcionarios/:id/editar" element={g('rh.edit', <EmployeeForm />)} />
               <Route path="rh/admissao" element={<Navigate to="/rh/funcionarios" replace />} />
               <Route path="rh/desligamento" element={<Navigate to="/rh/funcionarios" replace />} />
-              <Route path="alertas" element={<Guard perm={['fin.view', 'est.view', 'rh.view']}><ComingSoon slug="alertas" /></Guard>} />
-              <Route path="assistente" element={<ComingSoon slug="assistente" />} />
-              <Route path="rh/celebracoes" element={g('rh.view', <ComingSoon slug="rh-celebracoes" />)} />
-              <Route path="rh/documentos" element={g('rh.view', <ComingSoon slug="rh-documentos" />)} />
-              <Route path="financeiro/fluxo-de-caixa" element={g('fin.view', <ComingSoon slug="fin-fluxo" />)} />
-              <Route path="financeiro/contas" element={g('fin.view', <ComingSoon slug="fin-contas" />)} />
-              <Route path="financeiro/conciliacao" element={g('fin.view', <ComingSoon slug="fin-conciliacao" />)} />
-              <Route path="financeiro/centros-de-custo" element={g('fin.view', <ComingSoon slug="fin-centros" />)} />
-              <Route path="estoque/pedidos" element={g('est.view', <ComingSoon slug="est-pedidos" />)} />
-              <Route path="estoque/inventario" element={g('est.view', <ComingSoon slug="est-inventario" />)} />
-              <Route path="estoque/lotes" element={g('est.view', <ComingSoon slug="est-lotes" />)} />
-              <Route path="cadastros/importar" element={<Guard perm={['fin.view', 'est.view']}><ComingSoon slug="cad-importar" /></Guard>} />
-              <Route path="cadastros/parceiros" element={<Guard perm={['fin.view', 'est.view']}><ComingSoon slug="cad-parceiros" /></Guard>} />
+              <Route path="rh/celebracoes" element={g('rh.view', <Celebrations />)} />
+              <Route path="rh/documentos" element={g('rh.documents', <RhDocuments />)} />
               <Route path="rh/cadastros" element={g('rh.view', <RhCatalogs />)} />
               <Route path="rh/relatorios" element={g('rh.view', <RhReports />)} />
               <Route path="financeiro" element={g('fin.view', <FinOverview />)} />
               <Route path="financeiro/receitas" element={g('fin.view', <Transactions type="receita" />)} />
               <Route path="financeiro/despesas" element={g('fin.view', <Transactions type="despesa" />)} />
               <Route path="financeiro/categorias" element={g('fin.view', <Categories />)} />
+              <Route path="financeiro/contas" element={g('fin.view', <Accounts />)} />
+              <Route path="financeiro/fluxo-de-caixa" element={g('fin.view', <CashFlow />)} />
+              <Route path="financeiro/conciliacao" element={g('fin.view', <Reconcile />)} />
+              <Route path="financeiro/centros-de-custo" element={g('fin.view', <CostCenters />)} />
               <Route path="financeiro/relatorios" element={g('fin.view', <FinReports />)} />
               <Route path="estoque" element={g('est.view', <Products />)} />
               <Route path="estoque/entrada" element={<Navigate to="/estoque" replace />} />
               <Route path="estoque/saida" element={<Navigate to="/estoque" replace />} />
               <Route path="estoque/ajuste" element={<Navigate to="/estoque" replace />} />
               <Route path="estoque/movimentacoes" element={g('est.view', <Movements />)} />
+              <Route path="estoque/pedidos" element={g('est.view', <Orders />)} />
+              <Route path="estoque/inventario" element={g('est.view', <Inventory />)} />
+              <Route path="estoque/inventario/:id" element={g('est.view', <InventoryDetail />)} />
+              <Route path="estoque/lotes" element={g('est.view', <Batches />)} />
               <Route path="estoque/cadastros" element={g('est.view', <EstCatalogs />)} />
               <Route path="estoque/relatorios" element={g('est.view', <EstReports />)} />
+              <Route path="assistente" element={<Assistant />} />
+              <Route path="config/assistente-ia" element={g('cfg.users', <AiAccess />)} />
+              <Route path="cadastros/parceiros" element={g('cad.view', <Parties />)} />
+              <Route path="cadastros/importar" element={<Guard perm={['est.create', 'cad.create', 'rh.create']}><Import /></Guard>} />
               <Route path="config/empresa" element={g('cfg.settings', <CompanyPage />)} />
               <Route path="config/usuarios" element={g('cfg.users', <Users />)} />
               <Route path="config/perfis" element={g('cfg.roles', <Roles />)} />

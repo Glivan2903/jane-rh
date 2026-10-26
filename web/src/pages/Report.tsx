@@ -14,7 +14,8 @@ export interface Opt { value: string | number; label: string }
 export interface ReportCfg {
   base: string; title: string; exportPerm: string;
   dateFilter?: 'period' | 'none';
-  extra?: { key: string; label: string; options: Opt[] }[];
+  /** `only`: o filtro só aparece (e só é enviado) para esses relatórios. */
+  extra?: { key: string; label: string; options: Opt[]; only?: string[] }[];
 }
 
 /** Tela genérica de relatórios: escolhe o relatório, aplica filtros, consulta, exporta CSV e imprime. */
@@ -30,7 +31,8 @@ export function ReportPage({ cfg }: { cfg: ReportCfg }) {
   const { can } = useAuth(); const toast = useToast();
 
   useEffect(() => { if (names && !name) setName(Object.keys(names)[0]); }, [names, name]);
-  const params = () => ({ ...(cfg.dateFilter === 'none' ? {} : { from, to }), ...extra });
+  const visible = (cfg.extra ?? []).filter((x) => !x.only || x.only.includes(name));
+  const params = () => ({ ...(cfg.dateFilter === 'none' ? {} : { from, to }), ...Object.fromEntries(visible.filter((x) => extra[x.key]).map((x) => [x.key, extra[x.key]])) });
 
   const run = async () => {
     if (!name) return;
@@ -57,7 +59,7 @@ export function ReportPage({ cfg }: { cfg: ReportCfg }) {
           {Object.entries(names ?? {}).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         {cfg.dateFilter !== 'none' && <><FilterDate label="De" value={from} onChange={setFrom} /><FilterDate label="Até" value={to} onChange={setTo} /></>}
-        {cfg.extra?.map((x) => <FilterSelect key={x.key} label={x.label} placeholder={x.label} options={x.options} value={extra[x.key] ?? ''} onChange={(v) => setExtra((s) => ({ ...s, [x.key]: v }))} />)}
+        {visible.map((x) => <FilterSelect key={x.key} label={x.label} placeholder={x.label} options={x.options} value={extra[x.key] ?? ''} onChange={(v) => setExtra((s) => ({ ...s, [x.key]: v }))} />)}
         <button className="btn-primary col-span-2 sm:col-span-1" onClick={run} disabled={busy}>{busy ? <Spinner /> : <Play className="h-4 w-4" />}Gerar</button>
       </div>
       <div className="card overflow-hidden">
@@ -65,7 +67,7 @@ export function ReportPage({ cfg }: { cfg: ReportCfg }) {
           <>
             <PrintHeader title={res.title} details={[
               res.period ? `Período: ${dmy(res.period.from)} a ${dmy(res.period.to)}` : '',
-              ...(cfg.extra ?? []).filter((x) => extra[x.key]).map((x) => `${x.label}: ${x.options.find((o) => String(o.value) === extra[x.key])?.label ?? extra[x.key]}`),
+              ...visible.filter((x) => extra[x.key]).map((x) => `${x.label}: ${x.options.find((o) => String(o.value) === extra[x.key])?.label ?? extra[x.key]}`),
               `${res.rows.length} registro(s)`,
             ]} />
             <div className="no-print flex items-center justify-between border-b px-4 py-3"><h2 className="font-display font-bold">{res.title}</h2><span className="text-xs text-muted-foreground">{res.rows.length} linha(s)</span></div>

@@ -15,7 +15,7 @@ export function Field({ label, required, error, hint, children, className = '' }
   );
 }
 
-interface InputProps { f: F; name: string; label: string; required?: boolean; type?: string; mask?: (v: string) => string; hint?: string; placeholder?: string; className?: string; min?: string | number; max?: string | number; step?: string | number; disabled?: boolean; autoFocus?: boolean; autoComplete?: string }
+interface InputProps { f: F; name: string; label: string; required?: boolean; type?: string; mask?: (v: string) => string; hint?: string; placeholder?: string; className?: string; min?: string | number; max?: string | number; step?: string | number; disabled?: boolean; autoFocus?: boolean; autoComplete?: string; list?: string }
 export function FInput({ f, name, label, required, type = 'text', mask, hint, className, ...rest }: InputProps) {
   const err = f.err[name];
   return (

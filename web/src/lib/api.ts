@@ -38,6 +38,7 @@ export const api = {
   put: <T,>(url: string, body: unknown) => request<T>('PUT', url, body),
   del: <T,>(url: string) => request<T>('DELETE', url),
   upload: <T,>(url: string, form: FormData) => request<T>('POST', url, undefined, form),
+  uploadPut: <T,>(url: string, form: FormData) => request<T>('PUT', url, undefined, form),
   /** Download autenticado (CSV, backup, anexos). */
   async download(url: string, q?: Q, fallbackName = 'arquivo') {
     const res = await fetch('/api' + url + qs(q), { credentials: 'same-origin', headers: { 'X-Requested-With': 'gentis' } });

@@ -7,6 +7,9 @@ import { financeSummary } from '../services/finance.js';
 import { stockSummary } from '../services/stock.js';
 import { getSettings } from '../services/settings.js';
 import { TODAY_SQL } from '../services/finance.js';
+import { DOC_STATUS } from '../services/docs.js';
+import { BATCH_STATUS } from '../services/batches.js';
+import { ensureFreshScan } from '../services/anomalies.js';
 
 export const dashboardRouter = Router();
 
@@ -61,6 +64,28 @@ dashboardRouter.get('/notices', requireAuth(), h(async (req, res) => {
     if (st.notify_bills_enabled) {
       const r = (await pool.query(`SELECT type, count(*)::int n, COALESCE(sum(amount),0) total FROM financial_transactions WHERE status='pendente' AND due_date BETWEEN ${TODAY_SQL} AND ${TODAY_SQL} + $1::int AND type = ANY($2) GROUP BY type`, [st.notify_bills_days, types])).rows;
       for (const x of r) out.push({ id: `p-${x.type}`, text: `${x.n} conta(s) ${x.type === 'despesa' ? 'a pagar' : 'a receber'} vence(m) em até ${st.notify_bills_days} dia(s): ${brl(x.total)}`, to: `/financeiro/${x.type === 'despesa' ? 'despesas' : 'receitas'}`, tone: 'warning' });
+    }
+  }
+  if (st.notify_docs_enabled && hasPerm(req, 'rh.documents')) {
+    const r = (await pool.query(
+      `SELECT count(*) FILTER (WHERE s = 'vencido')::int AS venc, count(*) FILTER (WHERE s = 'a_vencer')::int AS breve
+         FROM (SELECT ${DOC_STATUS} AS s FROM employee_documents d JOIN employee_document_types t ON t.id = d.type_id JOIN employees e ON e.id = d.employee_id WHERE e.status <> 'desligado') x`)).rows[0];
+    if (r.venc) out.push({ id: 'doc-v', text: `${r.venc} documento(s) de funcionários vencido(s)`, to: '/rh/documentos?status=vencido', tone: 'danger' });
+    if (r.breve) out.push({ id: 'doc-b', text: `${r.breve} documento(s) de funcionários a vencer`, to: '/rh/documentos?status=a_vencer', tone: 'warning' });
+  }
+  if (st.notify_batches_enabled && hasPerm(req, 'est.view')) {
+    const r = (await pool.query(
+      `SELECT count(*) FILTER (WHERE s = 'vencido')::int AS venc, count(*) FILTER (WHERE s = 'a_vencer')::int AS breve
+         FROM (SELECT ${BATCH_STATUS} AS s FROM stock_batches b JOIN products p ON p.id = b.product_id WHERE b.quantity > 0 AND p.active) x`)).rows[0];
+    if (r.venc) out.push({ id: 'lote-v', text: `${r.venc} lote(s) de produtos vencido(s) em estoque`, to: '/estoque/lotes?status=vencido', tone: 'danger' });
+    if (r.breve) out.push({ id: 'lote-b', text: `${r.breve} lote(s) de produtos a vencer`, to: '/estoque/lotes?status=a_vencer', tone: 'warning' });
+  }
+  if (st.notify_anomalies_enabled) {
+    void ensureFreshScan(6).catch(() => undefined);   // o sino também mantém a verificação em dia, sem agendador externo
+    const areas = [['fin', 'fin.view'], ['est', 'est.view'], ['rh', 'rh.view']].filter(([, p]) => hasPerm(req, p)).map(([a]) => a);
+    if (areas.length) {
+      const r = (await pool.query(`SELECT count(*)::int n, count(*) FILTER (WHERE severity='alerta')::int grave FROM anomalies WHERE status='aberto' AND area = ANY($1)`, [areas])).rows[0];
+      if (r.n) out.push({ id: 'anom', text: `${r.n} alerta(s) de anomalia para conferir`, to: '/alertas', tone: r.grave ? 'danger' : 'warning' });
     }
   }
   res.json({ refreshMinutes: st.notify_refresh_minutes, notices: out });

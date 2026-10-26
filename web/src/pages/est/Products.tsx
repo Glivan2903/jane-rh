@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Eye, Package, Pencil, Plus, Scale, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Eye, FileSpreadsheet, Package, Pencil, Plus, Scale, Trash2 } from 'lucide-react';
 import { MovementModal, type Kind, type ProdRef } from './MovementModal';
+import { ScanButton } from '../../components/BarcodeScanner';
 import { Link } from 'react-router-dom';
+import { ImportModal } from '../cad/Import';
 import { Badge, DataTable, Empty, Modal, PageHeader, type Col, type Tone } from '../../components/ui';
 import { FCheck, FilterBar, FilterSelect, FInput, FSelect, FTextarea, SearchBox, SubmitButton } from '../../components/forms';
 import { api } from '../../lib/api';
@@ -12,7 +14,7 @@ import { brl, num } from '../../lib/format';
 
 export interface Product {
   id: string; code: string; name: string; description: string | null; categoryId: number | null; category: string | null; unitId: number; unit: string; barcode: string | null;
-  cost: string; salePrice: string | null; quantity: string; minStock: string; totalValue: string; location: string | null; supplierId: number | null; supplier: string | null; active: boolean; stockStatus: string;
+  cost: string; salePrice: string | null; quantity: string; minStock: string; totalValue: string; location: string | null; supplierId: number | null; supplier: string | null; active: boolean; stockStatus: string; tracksBatches: boolean;
 }
 const ST: Record<string, { tone: Tone; label: string }> = { normal: { tone: 'success', label: 'Normal' }, baixo: { tone: 'warning', label: 'Estoque baixo' }, sem_estoque: { tone: 'danger', label: 'Sem estoque' }, inativo: { tone: 'neutral', label: 'Inativo' } };
 export const StockBadge = ({ s }: { s: string }) => <Badge tone={ST[s].tone}>{ST[s].label}</Badge>;
@@ -26,6 +28,7 @@ function ProductForm({ row, onClose, onSaved }: { row: Product | null; onClose: 
     name: row?.name ?? '', description: row?.description ?? '', categoryId: String(row?.categoryId ?? ''), unitId: String(row?.unitId ?? ''), barcode: row?.barcode ?? '',
     cost: row ? String(Number(row.cost)) : '', salePrice: row?.salePrice ?? '', initialQuantity: '', minStock: row ? String(Number(row.minStock)) : '0',
     location: row?.location ?? '', supplierId: String(row?.supplierId ?? ''), active: row?.active ?? true,
+    tracksBatches: row?.tracksBatches ?? false, initialBatchCode: '', initialExpiresAt: '',
   });
   return (
     <Modal title={row ? `Editar produto ${row.code}` : 'Novo produto'} size="lg" onClose={onClose}
@@ -43,13 +46,19 @@ function ProductForm({ row, onClose, onSaved }: { row: Product | null; onClose: 
         <FTextarea f={f} name="description" label="Descrição" rows={2} className="sm:col-span-2" />
         <FSelect f={f} name="categoryId" label="Categoria" options={(cats.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         <FSelect f={f} name="unitId" label="Unidade de medida" required options={(units.data ?? []).map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` }))} />
-        <FInput f={f} name="barcode" label="Código de barras" />
+        <div className="flex items-end gap-2"><FInput f={f} name="barcode" label="Código de barras" className="min-w-0 flex-1" /><ScanButton onCode={(c) => f.set('barcode', c)} label="Ler o código de barras com a câmera" /></div>
         <FSelect f={f} name="supplierId" label="Fornecedor principal" options={(sups.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         {!row && <FInput f={f} name="cost" label="Custo unitário de aquisição (R$)" type="number" step="0.0001" min="0" />}
         <FInput f={f} name="salePrice" label="Preço de venda (R$)" type="number" step="0.01" min="0" />
         {!row && can('est.move') && <FInput f={f} name="initialQuantity" label="Quantidade inicial" type="number" step="0.001" min="0" hint="Gera uma movimentação de saldo inicial." />}
+        {!row && can('est.move') && f.v.tracksBatches && Number(f.v.initialQuantity) > 0 && <>
+          <FInput f={f} name="initialBatchCode" label="Lote do saldo inicial" hint="Se ficar em branco, usa SALDO-INICIAL." />
+          <FInput f={f} name="initialExpiresAt" label="Validade do lote (opcional)" type="date" />
+        </>}
         <FInput f={f} name="minStock" label="Estoque mínimo" type="number" step="0.001" min="0" />
         <FInput f={f} name="location" label="Localização física" />
+        <div className="sm:col-span-2 rounded-lg border p-3"><FCheck f={f} name="tracksBatches" label="Controlar por lote e validade" />
+          <p className="mt-1 text-xs text-muted-foreground">{row ? (row.tracksBatches ? 'Para desligar, o saldo do produto precisa estar zerado.' : 'Ao ligar, o saldo atual passa a ser o lote SEM-LOTE (o saldo não muda).') : 'Cada entrada informa o lote e a validade; a saída usa primeiro o lote que vence antes.'}</p></div>
         {row && can('est.inactivate') && <div className="flex items-end pb-2"><FCheck f={f} name="active" label="Produto ativo" /></div>}
         <SubmitButton busy={f.busy} className="hidden">Salvar</SubmitButton>
       </form>
@@ -60,7 +69,7 @@ function ProductForm({ row, onClose, onSaved }: { row: Product | null; onClose: 
 export default function Products() {
   const { can } = useAuth(); const toast = useToast(); const confirm = useConfirm(); const [sp] = useSearchParams();
   const [cat, setCat] = useState(''); const [st, setSt] = useState(sp.get('stockStatus') ?? ''); const [active, setActive] = useState('');
-  const [edit, setEdit] = useState<Product | 'new' | null>(null);
+  const [edit, setEdit] = useState<Product | 'new' | null>(null); const [importing, setImporting] = useState(false);
   const [mv, setMv] = useState<{ kind: Kind; product?: ProdRef } | null>(null);
   const cats = useFetch<{ id: number; name: string }[]>('/est/categories');
   const alerts = useFetch<{ id: string; code: string; name: string; quantity: string; minStock: string; unit: string; status: string }[]>('/est/alerts');
@@ -73,7 +82,7 @@ export default function Products() {
 
   const cols: Col<Product>[] = [
     { key: 'code', label: 'Código', sort: 'code', render: (r) => <span className="font-mono text-xs">{r.code}</span> },
-    { key: 'name', label: 'Nome', sort: 'name', render: (r) => <div><Link to={`/estoque/movimentacoes?productId=${r.id}`} className="font-semibold hover:text-primary">{r.name}</Link>{r.barcode && <div className="text-xs text-muted-foreground">{r.barcode}</div>}</div> },
+    { key: 'name', label: 'Nome', sort: 'name', render: (r) => <div><Link to={`/estoque/movimentacoes?productId=${r.id}`} className="font-semibold hover:text-primary">{r.name}</Link>{r.tracksBatches && <span className="ml-2 align-middle"><Badge tone="info">Lote</Badge></span>}{r.barcode && <div className="text-xs text-muted-foreground">{r.barcode}</div>}</div> },
     { key: 'category', label: 'Categoria', sort: 'category', render: (r) => r.category ?? '—' },
     { key: 'quantity', label: 'Disponível', sort: 'quantity', className: 'text-right tabular-nums', render: (r) => `${num(r.quantity)} ${r.unit}` },
     { key: 'min', label: 'Mínimo', className: 'text-right tabular-nums', render: (r) => num(r.minStock) },
@@ -94,6 +103,7 @@ export default function Products() {
   const topActions = <>
     {can('est.move') && <button className="btn-outline" onClick={() => setMv({ kind: 'entrada' })}><ArrowDownToLine className="h-4 w-4 text-success" />Entrada</button>}
     {can('est.move') && <button className="btn-outline" onClick={() => setMv({ kind: 'saida' })}><ArrowUpFromLine className="h-4 w-4 text-danger" />Saída</button>}
+    {can('est.create') && <button className="btn-outline" onClick={() => setImporting(true)}><FileSpreadsheet className="h-4 w-4" />Importar planilha</button>}
     {add}
   </>;
   const al = alerts.data ?? [];
@@ -116,6 +126,7 @@ export default function Products() {
       <DataTable<Product> cols={cols} rows={t.rows} loading={t.loading} error={t.error} onRetry={t.reload} list={t.list}
         empty={<Empty icon={Package} title={t.q || cat || st || active ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'} hint="Cadastre o primeiro produto para começar a controlar o estoque." action={add} />} />
       {edit && <ProductForm row={edit === 'new' ? null : edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); t.reload(); alerts.reload(); }} />}
+      {importing && <ImportModal kindId="produtos" onClose={() => setImporting(false)} onImported={t.reload} />}
       {mv && <MovementModal kind={mv.kind} product={mv.product} onClose={() => setMv(null)} onDone={() => { setMv(null); t.reload(); alerts.reload(); }} />}
     </div>
   );

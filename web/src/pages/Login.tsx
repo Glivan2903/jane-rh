@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { HeartHandshake, LineChart, PackageCheck, ShieldCheck } from 'lucide-react';
 import { Brand, ParticleNetwork } from '../components/brand';
@@ -75,7 +75,7 @@ export default function Login() {
             {err && <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{err}</p>}
             <button className="btn-primary w-full !py-2.5" disabled={busy || !l || !p}>{busy && <Spinner />}Entrar</button>
           </form>
-          <p className="mt-5 text-center text-xs text-muted-foreground">Esqueceu a senha? Solicite a redefinição a um administrador.</p>
+          <p className="mt-5 text-center text-sm"><Link to="/esqueci-senha" className="text-primary hover:underline">Esqueci minha senha</Link></p>
         </div>
       </section>
     </div>

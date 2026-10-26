@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/app';
 import { useFetch } from '../../lib/hooks';
 import { brl, dmy, dmyTime, fmtCpf } from '../../lib/format';
 import { statusBadge, type Employee } from './Employees';
+import { EmployeeDocuments } from './EmployeeDocuments';
 
 type Full = Employee & Record<string, string | boolean | null>;
 interface Ev { id: number; at: string; eventType: string; description: string; userName: string | null }
@@ -69,6 +70,7 @@ export default function EmployeeDetail() {
               {d.status === 'desligado' && <><Row k="Desligamento" v={dmy(d.terminationDate as string)} /><div className="sm:col-span-2"><Row k="Motivo" v={d.terminationReason} /></div></>}
               <div className="sm:col-span-3"><Row k="Observações profissionais" v={d.professionalNotes} /></div>
             </dl></section>
+          {can('rh.documents') && <EmployeeDocuments employeeId={id!} />}
         </div>
         <section className="card p-5"><h2 className="mb-4 font-display font-bold">Histórico</h2>
           {h.loading ? <Skeleton className="h-40" /> : h.error ? <ErrorBox message={h.error} onRetry={h.reload} /> : (

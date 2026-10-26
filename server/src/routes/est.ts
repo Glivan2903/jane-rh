@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { pool, tx } from '../db.js';
 import { audit } from '../audit.js';
 import { hasPerm, requireAuth } from '../auth.js';
-import { HttpError, Where, h, likeEsc, listParams, optInt, optMoney, optStr, parse, qstr, qty, reqDate, reqStr, sendReport, today } from '../util.js';
+import { HttpError, Where, h, likeEsc, listParams, optDate, optInt, optMoney, optStr, parse, qstr, qty, reqDate, reqStr, sendReport, today } from '../util.js';
 import { STOCK_STATUS } from '../services/stock.js';
+import { applyMovement, type Mv } from '../services/stockmove.js';
 import { lookupRouter } from './lookup.js';
 
 export const estRouter = Router();
@@ -12,10 +13,11 @@ export const estRouter = Router();
 const perms = { viewPerms: ['est.view'], createPerm: 'est.create', editPerm: 'est.edit', inactivatePerm: 'est.inactivate', module: 'estoque' };
 estRouter.use('/categories', lookupRouter({ table: 'product_categories', label: 'Categoria de produto', ...perms, usedBy: [{ table: 'products', column: 'category_id' }] }));
 estRouter.use('/units', lookupRouter({ table: 'units_of_measure', label: 'Unidade de medida', hasCode: true, ...perms, usedBy: [{ table: 'products', column: 'unit_id' }] }));
-estRouter.use('/suppliers', lookupRouter({ table: 'suppliers', label: 'Fornecedor', ...perms, usedBy: [{ table: 'products', column: 'supplier_id' }, { table: 'stock_movements', column: 'supplier_id' }] }));
-
-const allowNegative = async (c: { query: typeof pool.query }) =>
-  (await c.query(`SELECT value FROM settings WHERE key='allow_negative_stock'`)).rows[0]?.value === true;
+// Fornecedores agora são mantidos em Clientes e fornecedores (/api/cad); aqui só a lista usada nos formulários de estoque.
+estRouter.get('/suppliers', requireAuth('est.view'), h(async (req, res) => {
+  res.json((await pool.query(`SELECT t.id, t.name, t.active, ((SELECT count(*) FROM products x WHERE x.supplier_id = t.id) + (SELECT count(*) FROM stock_movements x WHERE x.supplier_id = t.id))::int AS "usageCount"
+    FROM suppliers t ${req.query.active === 'true' ? 'WHERE t.active' : ''} ORDER BY lower(t.name)`)).rows);
+}));
 
 // ---------- Produtos ----------
 const productSchema = z.object({
@@ -31,11 +33,14 @@ const productSchema = z.object({
   location: optStr(100),
   supplierId: optInt,
   active: z.boolean().default(true),
+  tracksBatches: z.boolean().default(false),
+  initialBatchCode: optStr(60),
+  initialExpiresAt: optDate,
 });
 
 const P_SELECT = `p.id, p.code, p.name, p.description, p.category_id AS "categoryId", pc.name AS category, p.unit_id AS "unitId", u.code AS unit,
   p.barcode, p.cost, p.sale_price AS "salePrice", p.quantity, p.min_stock AS "minStock", (p.quantity * p.cost) AS "totalValue",
-  p.location, p.supplier_id AS "supplierId", s.name AS supplier, p.active, ${STOCK_STATUS} AS "stockStatus"`;
+  p.location, p.supplier_id AS "supplierId", s.name AS supplier, p.active, p.tracks_batches AS "tracksBatches", ${STOCK_STATUS} AS "stockStatus"`;
 const P_FROM = `FROM products p LEFT JOIN product_categories pc ON pc.id=p.category_id JOIN units_of_measure u ON u.id=p.unit_id LEFT JOIN suppliers s ON s.id=p.supplier_id`;
 
 const dupProduct = (e: unknown): never => {
@@ -58,7 +63,7 @@ estRouter.get('/products', requireAuth('est.view'), h(async (req, res) => {
 estRouter.get('/products/options', requireAuth('est.view'), h(async (req, res) => {
   const w = new Where().add('p.active');
   if (req.query.q) w.add('(p.code ILIKE ? OR p.name ILIKE ? OR p.barcode ILIKE ?)', likeEsc(String(req.query.q)), likeEsc(String(req.query.q)), likeEsc(String(req.query.q)));
-  res.json((await pool.query(`SELECT p.id, p.code, p.name, p.quantity, u.code AS unit, p.cost ${P_FROM} ${w.sql} ORDER BY lower(p.name) LIMIT 50`, w.params)).rows);
+  res.json((await pool.query(`SELECT p.id, p.code, p.name, p.quantity, u.code AS unit, p.cost, p.barcode, p.tracks_batches AS "tracksBatches" ${P_FROM} ${w.sql} ORDER BY lower(p.name) LIMIT 50`, w.params)).rows);
 }));
 
 estRouter.get('/products/:id', requireAuth('est.view'), h(async (req, res) => {
@@ -74,11 +79,12 @@ estRouter.post('/products', requireAuth('est.create'), h(async (req, res) => {
     const out = await tx(async (c) => {
       const code = 'PRD-' + String((await c.query(`SELECT nextval('product_code_seq') n`)).rows[0].n).padStart(6, '0');
       const id = (await c.query(
-        `INSERT INTO products (code,name,description,category_id,unit_id,barcode,cost,sale_price,quantity,min_stock,location,supplier_id,active)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,0,$9,$10,$11,$12) RETURNING id`,
-        [code, d.name, d.description ?? null, d.categoryId ?? null, d.unitId, d.barcode ?? null, d.cost, d.salePrice ?? null, d.minStock, d.location ?? null, d.supplierId ?? null, d.active])).rows[0].id;
+        `INSERT INTO products (code,name,description,category_id,unit_id,barcode,cost,sale_price,quantity,min_stock,location,supplier_id,active,tracks_batches)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,0,$9,$10,$11,$12,$13) RETURNING id`,
+        [code, d.name, d.description ?? null, d.categoryId ?? null, d.unitId, d.barcode ?? null, d.cost, d.salePrice ?? null, d.minStock, d.location ?? null, d.supplierId ?? null, d.active, d.tracksBatches])).rows[0].id;
       if (d.initialQuantity > 0) {
-        await applyMovement(c, req, { productId: id, type: 'entrada', quantity: d.initialQuantity, date: today(), reason: 'Saldo inicial', unitCost: d.cost, key: null });
+        await applyMovement(c, req, { productId: id, type: 'entrada', quantity: d.initialQuantity, date: today(), reason: 'Saldo inicial', unitCost: d.cost, key: null,
+          ...(d.tracksBatches ? { batchCode: d.initialBatchCode ?? 'SALDO-INICIAL', expiresAt: d.initialExpiresAt ?? null } : {}) });
       }
       await audit(req, { action: 'criar', module: 'estoque', entity: 'product', entityId: id, summary: `Produto cadastrado: ${code} — ${d.name}` }, c);
       return { id, code };
@@ -86,6 +92,21 @@ estRouter.post('/products', requireAuth('est.create'), h(async (req, res) => {
     res.status(201).json(out);
   } catch (e) { dupProduct(e); }
 }));
+
+/** Liga/desliga o controle por lote. Ao ligar, o saldo atual vira o lote "SEM-LOTE" (nada é alterado no saldo). Só desliga com o produto zerado. */
+async function setBatchTracking(req: Request, cur: { id: string; code: string; name: string; quantity: string }, on: boolean) {
+  await tx(async (c) => {
+    const p = (await c.query('SELECT * FROM products WHERE id=$1 FOR UPDATE', [cur.id])).rows[0];
+    if (on) {
+      await c.query('UPDATE products SET tracks_batches=true WHERE id=$1', [p.id]);
+      if (Number(p.quantity) > 0) await c.query(`INSERT INTO stock_batches (product_id, code, quantity) VALUES ($1,'SEM-LOTE',$2) ON CONFLICT (product_id, code) DO UPDATE SET quantity = stock_batches.quantity + EXCLUDED.quantity`, [p.id, p.quantity]);
+    } else {
+      if (Number(p.quantity) !== 0) throw new HttpError(409, 'Só é possível desligar o controle por lote com o saldo zerado.', { tracksBatches: 'Zere o saldo antes' });
+      await c.query('UPDATE products SET tracks_batches=false WHERE id=$1', [p.id]);
+    }
+    await audit(req, { action: 'editar', module: 'estoque', entity: 'product', entityId: p.id, summary: `Controle por lote ${on ? 'ligado' : 'desligado'}: ${p.code} — ${p.name}` }, c);
+  });
+}
 
 estRouter.put('/products/:id', requireAuth('est.edit', 'est.inactivate'), h(async (req, res) => {
   const d = parse(productSchema, req.body);
@@ -98,6 +119,7 @@ estRouter.put('/products/:id', requireAuth('est.edit', 'est.inactivate'), h(asyn
     await pool.query(
       `UPDATE products SET name=$2, description=$3, category_id=$4, unit_id=$5, barcode=$6, sale_price=$7, min_stock=$8, location=$9, supplier_id=$10, active=$11, updated_at=now() WHERE id=$1`,
       [req.params.id, d.name, d.description ?? null, d.categoryId ?? null, d.unitId, d.barcode ?? null, d.salePrice ?? null, d.minStock, d.location ?? null, d.supplierId ?? null, d.active]);
+    if (d.tracksBatches !== cur.tracks_batches) await setBatchTracking(req, cur, d.tracksBatches);
   } catch (e) { dupProduct(e); }
   await audit(req, { action: cur.active !== d.active ? (d.active ? 'ativar' : 'inativar') : 'editar', module: 'estoque', entity: 'product', entityId: req.params.id, summary: `Produto ${cur.active !== d.active ? (d.active ? 'ativado' : 'inativado') : 'editado'}: ${cur.code} — ${d.name}` });
   res.json({ ok: true });
@@ -114,46 +136,6 @@ estRouter.delete('/products/:id', requireAuth('est.inactivate'), h(async (req, r
 }));
 
 // ---------- Movimentações ----------
-interface Mv {
-  productId: string; type: 'entrada' | 'saida' | 'ajuste'; quantity: number; date: string; reason: string;
-  unitCost?: number | null; docNumber?: string | null; supplierId?: number | null; destination?: string | null; notes?: string | null;
-  key: string | null; newQuantity?: number;
-}
-
-/** Aplica uma movimentação sob lock da linha do produto; saldo e histórico mudam juntos (mesma transação). */
-async function applyMovement(c: Parameters<Parameters<typeof tx>[0]>[0], req: Request, m: Mv) {
-  const p = (await c.query('SELECT * FROM products WHERE id=$1 FOR UPDATE', [m.productId])).rows[0];
-  if (!p) throw new HttpError(404, 'Produto não encontrado');
-  if (!p.active) throw new HttpError(409, 'Produto inativo não pode ser movimentado.');
-  const before = Number(p.quantity);
-  let delta: number;
-  if (m.type === 'entrada') delta = m.quantity;
-  else if (m.type === 'saida') delta = -m.quantity;
-  else delta = Math.round((m.newQuantity! - before) * 1000) / 1000;
-  if (m.type === 'ajuste' && delta === 0) throw new HttpError(422, 'A quantidade informada é igual ao saldo atual.', { newQuantity: 'Igual ao saldo atual' });
-  const after = Math.round((before + delta) * 1000) / 1000;
-  if (after < 0 && !(await allowNegative(c))) {
-    throw new HttpError(409, `Saldo insuficiente: disponível ${before}, solicitado ${m.quantity}.`, { quantity: `Saldo insuficiente (disponível: ${before})` });
-  }
-  let newCost = Number(p.cost);
-  if (m.type === 'entrada' && m.unitCost != null) {
-    newCost = before > 0 ? (before * Number(p.cost) + m.quantity * m.unitCost) / (before + m.quantity) : m.unitCost;
-    newCost = Math.round(newCost * 10000) / 10000;
-  }
-  await c.query('UPDATE products SET quantity=$2, cost=$3, updated_at=now() WHERE id=$1', [p.id, after, newCost]);
-  const mv = (await c.query(
-    `INSERT INTO stock_movements (product_id,type,quantity,delta,balance_before,balance_after,unit_cost,reason,doc_number,supplier_id,destination,notes,movement_date,user_id,user_name,idempotency_key)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id`,
-    [p.id, m.type, Math.abs(delta), delta, before, after, m.type === 'entrada' ? (m.unitCost ?? null) : Number(p.cost), m.reason, m.docNumber ?? null, m.supplierId ?? null, m.destination ?? null, m.notes ?? null,
-     m.date, req.user!.id, req.user!.name, m.key])).rows[0];
-  await audit(req, {
-    action: m.type, module: 'estoque', entity: 'movement', entityId: mv.id,
-    summary: `${m.type === 'entrada' ? 'Entrada' : m.type === 'saida' ? 'Saída' : 'Ajuste'} de estoque: ${p.code} ${p.name} (${delta > 0 ? '+' : ''}${delta}) — ${m.reason}`,
-    details: { saldoAnterior: before, saldoPosterior: after },
-  }, c);
-  return { id: mv.id as number, balanceBefore: before, balanceAfter: after };
-}
-
 const baseMv = {
   productId: z.string({ required_error: 'Selecione o produto' }).uuid('Selecione o produto'),
   date: reqDate.refine((d) => d <= today(), 'Data não pode ser futura'),
@@ -182,26 +164,26 @@ async function runMovement(req: Request, res: import('express').Response, build:
 estRouter.post('/entries', requireAuth('est.move'), h(async (req, res) => {
   const d = parse(z.object({
     ...baseMv, quantity: qty, unitCost: optMoney.refine((v) => v == null || v >= 0), reason: z.enum(ENTRY_REASONS as [string, ...string[]], { errorMap: () => ({ message: 'Selecione o motivo' }) }),
-    docNumber: optStr(60), supplierId: optInt,
+    docNumber: optStr(60), supplierId: optInt, batchCode: optStr(60), expiresAt: optDate,
   }), req.body);
   if (d.reason === 'Ajuste autorizado' && !hasPerm(req, 'est.adjust')) throw new HttpError(403, 'Ajuste autorizado exige permissão de ajuste.');
-  await runMovement(req, res, () => ({ productId: d.productId, type: 'entrada', quantity: d.quantity, date: d.date, reason: d.reason, unitCost: d.unitCost ?? null, docNumber: d.docNumber, supplierId: d.supplierId, notes: d.notes, key: d.idempotencyKey ?? null }));
+  await runMovement(req, res, () => ({ batchCode: d.batchCode, expiresAt: d.expiresAt, productId: d.productId, type: 'entrada', quantity: d.quantity, date: d.date, reason: d.reason, unitCost: d.unitCost ?? null, docNumber: d.docNumber, supplierId: d.supplierId, notes: d.notes, key: d.idempotencyKey ?? null }));
 }));
 
 estRouter.post('/exits', requireAuth('est.move'), h(async (req, res) => {
   const d = parse(z.object({
-    ...baseMv, quantity: qty, reason: z.enum(EXIT_REASONS as [string, ...string[]], { errorMap: () => ({ message: 'Selecione o motivo' }) }), destination: optStr(200),
+    ...baseMv, quantity: qty, reason: z.enum(EXIT_REASONS as [string, ...string[]], { errorMap: () => ({ message: 'Selecione o motivo' }) }), destination: optStr(200), batchId: optInt,
   }), req.body);
   if (d.reason === 'Ajuste autorizado' && !hasPerm(req, 'est.adjust')) throw new HttpError(403, 'Ajuste autorizado exige permissão de ajuste.');
-  await runMovement(req, res, () => ({ productId: d.productId, type: 'saida', quantity: d.quantity, date: d.date, reason: d.reason, destination: d.destination, notes: d.notes, key: d.idempotencyKey ?? null }));
+  await runMovement(req, res, () => ({ batchId: d.batchId, productId: d.productId, type: 'saida', quantity: d.quantity, date: d.date, reason: d.reason, destination: d.destination, notes: d.notes, key: d.idempotencyKey ?? null }));
 }));
 
 estRouter.post('/adjustments', requireAuth('est.adjust'), h(async (req, res) => {
   const d = parse(z.object({
     ...baseMv, newQuantity: z.coerce.number({ invalid_type_error: 'Quantidade inválida' }).min(0, 'Não pode ser negativa').max(999999999),
-    reason: reqStr(300, 'Informe o motivo do ajuste'),
+    reason: reqStr(300, 'Informe o motivo do ajuste'), batchId: optInt,
   }), req.body);
-  await runMovement(req, res, () => ({ productId: d.productId, type: 'ajuste', quantity: 0, newQuantity: d.newQuantity, date: d.date, reason: d.reason, notes: d.notes, key: d.idempotencyKey ?? null }));
+  await runMovement(req, res, () => ({ batchId: d.batchId, productId: d.productId, type: 'ajuste', quantity: 0, newQuantity: d.newQuantity, date: d.date, reason: d.reason, notes: d.notes, key: d.idempotencyKey ?? null }));
 }));
 
 estRouter.get('/movements', requireAuth('est.view'), h(async (req, res) => {
@@ -217,7 +199,9 @@ estRouter.get('/movements', requireAuth('est.view'), h(async (req, res) => {
   const rows = (await pool.query(
     `SELECT m.id, m.created_at AS "at", m.movement_date AS "date", p.id AS "productId", p.code, p.name AS product, m.type, m.quantity, m.delta,
             m.balance_before AS "balanceBefore", m.balance_after AS "balanceAfter", m.unit_cost AS "unitCost", m.reason, m.doc_number AS "docNumber",
-            m.destination, m.notes, m.user_name AS "userName"
+            m.destination, m.notes, m.user_name AS "userName",
+            (SELECT string_agg(b.code || ' (' || CASE WHEN x.delta > 0 THEN '+' ELSE '' END || trim(trailing '.' FROM trim(trailing '0' FROM x.delta::text)) || ')', ', ' ORDER BY b.code)
+               FROM stock_movement_batches x JOIN stock_batches b ON b.id = x.batch_id WHERE x.movement_id = m.id) AS batches
        FROM stock_movements m JOIN products p ON p.id=m.product_id ${w.sql} ORDER BY ${p.sort} ${p.dir}, m.id DESC LIMIT ${p.pageSize} OFFSET ${(p.page - 1) * p.pageSize}`, w.params)).rows;
   res.json({ rows, total, page: p.page, pageSize: p.pageSize });
 }));

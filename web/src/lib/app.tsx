@@ -6,7 +6,7 @@ import { Modal } from '../components/ui';
 import { markNewsForLogin } from './news';
 
 // ---------- Auth ----------
-export interface Me { id: string; name: string; email: string; role: string; permissions: string[]; mustChangePassword: boolean }
+export interface Me { id: string; name: string; email: string; role: string; permissions: string[]; mustChangePassword: boolean; ai?: { enabled: boolean; finance: boolean; stock: boolean; hr: boolean; salary: boolean } }
 interface AuthCtx { me: Me | null; loading: boolean; netError: boolean; login: (l: string, p: string) => Promise<Me>; logout: () => Promise<void>; refresh: () => Promise<void>; setup: (d: SetupData) => Promise<Me>; can: (...p: string[]) => boolean }
 export interface SetupData { name: string; email: string; password: string; confirm: string; token?: string }
 const Auth = createContext<AuthCtx>(null as never);

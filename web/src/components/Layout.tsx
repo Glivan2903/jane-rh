@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import {
-  Download, RefreshCw, WifiOff, Activity, AlertTriangle, Bot, Cake, CalendarClock, FileCheck2, Landmark, Layers, LineChart, Link2, ListChecks, ShoppingCart, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
-  ChevronDown, ChevronLeft, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon,
-  FileSpreadsheet, BellRing,
+  Download, RefreshCw, WifiOff, Activity, AlertTriangle, Bot, Cake, CalendarClock, FileCheck2, ListChecks, ShoppingCart, Sparkles, ArrowDownToLine, ArrowUpFromLine, Bell, Boxes, Building2, ClipboardCheck, DatabaseBackup, FileBarChart, FolderTree, HandCoins, KeyRound, LayoutDashboard,
+  ChevronDown, ChevronLeft, Landmark, Layers, LineChart, Link2, ChevronRight, LogOut, Menu, Moon, Package, Receipt, Scale, ScrollText, Settings, ShieldCheck, Sun, Tags, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus, Users, Wallet, X, type LucideIcon, FileSpreadsheet,
+  BellRing,
 } from 'lucide-react';
 import { useAuth, useTheme } from '../lib/app';
 import { shouldShowNews } from '../lib/news';
@@ -15,16 +15,16 @@ import { Modal } from './ui';
 import { applyUpdate, isIos, promptInstall, usePwa } from '../lib/pwa';
 import { useCompany } from '../lib/company';
 
-interface Item { to: string; label: string; icon: LucideIcon; perm?: string[]; end?: boolean; soon?: boolean }
-interface Group { label: string; icon: LucideIcon; perm: string[]; open?: boolean; items: Item[] }
+interface Item { to: string; label: string; icon: LucideIcon; perm?: string[]; end?: boolean }
+interface Group { label: string; icon: LucideIcon; perm: string[]; ai?: boolean; items: Item[] }
 
 const NAV: Group[] = [
-  { label: 'Geral', icon: LayoutDashboard, perm: ['dash.view'], items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true }, { to: '/alertas', label: 'Alertas', icon: BellRing, perm: ['fin.view', 'est.view', 'rh.view'], soon: true }] },
-  { label: 'Assistente', icon: Bot, perm: [], open: true, items: [{ to: '/assistente', label: 'Assistente de IA', icon: Sparkles, soon: true }] },
+  { label: 'Geral', icon: LayoutDashboard, perm: ['dash.view'], items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true }, { to: '/alertas', label: 'Alertas', icon: BellRing, perm: ['fin.view', 'est.view', 'rh.view'] }] },
+  { label: 'Assistente', icon: Bot, perm: [], ai: true, items: [{ to: '/assistente', label: 'Assistente de IA', icon: Sparkles }] },
   { label: 'RH / Pessoal', icon: Users, perm: ['rh.view'], items: [
     { to: '/rh/funcionarios', label: 'Funcionários', icon: Users },
-    { to: '/rh/celebracoes', label: 'Aniversários e tempo de casa', icon: Cake, soon: true },
-    { to: '/rh/documentos', label: 'Documentos', icon: FileCheck2, soon: true },
+    { to: '/rh/celebracoes', label: 'Aniversários e tempo de casa', icon: Cake },
+    { to: '/rh/documentos', label: 'Documentos', icon: FileCheck2, perm: ['rh.documents'] },
     { to: '/rh/cadastros', label: 'Cargos e departamentos', icon: Building2 },
     { to: '/rh/relatorios', label: 'Relatórios', icon: FileBarChart },
   ] },
@@ -32,31 +32,32 @@ const NAV: Group[] = [
     { to: '/financeiro', label: 'Visão geral', icon: Activity, end: true },
     { to: '/financeiro/receitas', label: 'Receitas', icon: TrendingUp },
     { to: '/financeiro/despesas', label: 'Despesas', icon: TrendingDown },
-    { to: '/financeiro/fluxo-de-caixa', label: 'Fluxo de caixa', icon: LineChart, soon: true },
-    { to: '/financeiro/contas', label: 'Contas e transferências', icon: Landmark, soon: true },
-    { to: '/financeiro/conciliacao', label: 'Conciliação bancária', icon: Link2, soon: true },
+    { to: '/financeiro/fluxo-de-caixa', label: 'Fluxo de caixa', icon: LineChart },
+    { to: '/financeiro/contas', label: 'Contas e transferências', icon: Landmark },
+    { to: '/financeiro/conciliacao', label: 'Conciliação bancária', icon: Link2 },
     { to: '/financeiro/categorias', label: 'Categorias', icon: Tags },
-    { to: '/financeiro/centros-de-custo', label: 'Centros de custo', icon: Layers, soon: true },
+    { to: '/financeiro/centros-de-custo', label: 'Centros de custo', icon: Layers },
     { to: '/financeiro/relatorios', label: 'Relatórios', icon: FileBarChart },
   ] },
   { label: 'Estoque', icon: Boxes, perm: ['est.view'], items: [
     { to: '/estoque', label: 'Produtos', icon: Package, end: true },
     { to: '/estoque/movimentacoes', label: 'Movimentações', icon: ClipboardCheck },
-    { to: '/estoque/pedidos', label: 'Pedidos de compra', icon: ShoppingCart, soon: true },
-    { to: '/estoque/inventario', label: 'Inventário', icon: ListChecks, soon: true },
-    { to: '/estoque/lotes', label: 'Lotes e validades', icon: CalendarClock, soon: true },
+    { to: '/estoque/pedidos', label: 'Pedidos de compra', icon: ShoppingCart },
+    { to: '/estoque/inventario', label: 'Inventário', icon: ListChecks },
+    { to: '/estoque/lotes', label: 'Lotes e validades', icon: CalendarClock },
     { to: '/estoque/cadastros', label: 'Categorias e unidades', icon: FolderTree },
     { to: '/estoque/relatorios', label: 'Relatórios', icon: FileBarChart },
   ] },
-  { label: 'Cadastros', icon: Users, perm: ['fin.view', 'est.view'], items: [
-    { to: '/cadastros/parceiros', label: 'Clientes e fornecedores', icon: HandCoins, soon: true },
-    { to: '/cadastros/importar', label: 'Importar planilhas', icon: FileSpreadsheet, soon: true },
+  { label: 'Cadastros', icon: Users, perm: ['cad.view', 'cad.create', 'est.create'], items: [
+    { to: '/cadastros/parceiros', label: 'Clientes e fornecedores', icon: HandCoins, perm: ['cad.view'] },
+    { to: '/cadastros/importar', label: 'Importar planilhas', icon: FileSpreadsheet, perm: ['cad.create', 'est.create', 'rh.create'] },
   ] },
   { label: 'Configurações', icon: Settings, perm: ['cfg.users', 'cfg.roles', 'cfg.audit', 'cfg.backup', 'cfg.settings'], items: [
     { to: '/config/empresa', label: 'Dados da empresa', icon: Building2, perm: ['cfg.settings'] },
     { to: '/config/usuarios', label: 'Usuários', icon: UserCog, perm: ['cfg.users'] },
     { to: '/config/perfis', label: 'Perfis e permissões', icon: ShieldCheck, perm: ['cfg.roles'] },
     { to: '/config/auditoria', label: 'Auditoria', icon: ScrollText, perm: ['cfg.audit'] },
+    { to: '/config/assistente-ia', label: 'Assistente de IA', icon: Bot, perm: ['cfg.users'] },
     { to: '/config/backup', label: 'Backup', icon: DatabaseBackup, perm: ['cfg.backup'] },
     { to: '/config/parametros', label: 'Parâmetros', icon: Settings, perm: ['cfg.settings'] },
   ] },
@@ -118,7 +119,8 @@ export function Layout() {
     gsap.from(sbRef.current!.querySelectorAll('[data-nav]'), { x: -14, opacity: 0, duration: 0.4, stagger: 0.025, ease: 'power2.out', delay: 0.1, clearProps: 'all' });
   }, []);
 
-  const groups = NAV.filter((g) => g.open || can(...g.perm));
+  const fill = loc.pathname.startsWith('/assistente');          // páginas de tela cheia (chat): ocupam toda a altura visível
+  const groups = NAV.filter((g) => (g.ai ? !!me?.ai?.enabled && (me.ai.finance || me.ai.stock || me.ai.hr) : can(...g.perm)));
   // Módulos expansíveis: abre o da rota atual; o usuário pode abrir/fechar vários ao mesmo tempo.
   const groupOfPath = () => groups.find((g) => g.items.some((i) => (i.end ? loc.pathname === i.to : loc.pathname.startsWith(i.to))))?.label ?? null;
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
@@ -136,11 +138,11 @@ export function Layout() {
           const link = (i: Item) => (
             <NavLink to={i.to} end={i.end} title={collapsed ? i.label : undefined}
               className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition ${collapsed ? 'lg:justify-center' : ''} ${isActive ? 'bg-primary text-primary-foreground shadow-md' : 'text-sidebar-foreground/80 hover:bg-white/10 hover:text-white'}`}>
-              <i.icon className="h-[18px] w-[18px] shrink-0" /><span className={collapsed ? 'lg:hidden' : ''}>{i.label}</span>{i.soon && <span className={`ml-auto shrink-0 rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none ${collapsed ? 'lg:hidden' : ''}`}>Em breve</span>}
+              <i.icon className="h-[18px] w-[18px] shrink-0" /><span className={collapsed ? 'lg:hidden' : ''}>{i.label}</span>
             </NavLink>
           );
           if (collapsed) return <ul key={g.label} data-nav className="space-y-0.5 border-b border-white/10 pb-2 last:border-0">{items.map((i) => <li key={i.to}>{link(i)}</li>)}</ul>;
-          if (items.length === 1 && (g.label === 'Geral' || g.label === 'Assistente')) return <div key={g.label} data-nav className="pb-1">{link(items[0])}</div>;
+          if (items.length === 1 && (g.label === 'Geral' || g.ai)) return <div key={g.label} data-nav className="pb-1">{link(items[0])}</div>;
           const isOpen = openGroups.has(g.label) && !collapsed;
           const hasActive = items.some((i) => (i.end ? loc.pathname === i.to : loc.pathname.startsWith(i.to)));
           return (
@@ -230,8 +232,8 @@ export function Layout() {
           <Modal title="Instalar o Gentis no iPhone ou iPad" size="sm" onClose={() => setIosHelp(false)} footer={<button className="btn-primary" onClick={() => setIosHelp(false)}>Entendi</button>}>
             <ol className="list-decimal space-y-2 pl-5 text-sm"><li>Abra o Gentis no <b>Safari</b>.</li><li>Toque no botão <b>Compartilhar</b> (o quadrado com a seta para cima).</li><li>Escolha <b>Adicionar à Tela de Início</b> e confirme.</li></ol>
           </Modal>)}
-        <main ref={mainRef} className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6" onClick={() => menu && setMenu(null)}>
-          <div className="w-full"><Outlet /></div>
+        <main ref={mainRef} className={fill ? 'min-h-0 flex-1 overflow-hidden p-3 sm:p-5 lg:p-6' : 'flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6'} onClick={() => menu && setMenu(null)}>
+          <div className={fill ? 'h-full' : 'w-full'}><Outlet /></div>
         </main>
       </div>
     </div>

@@ -9,7 +9,7 @@ import { useFetch, useForm, useList } from '../../lib/hooks';
 import { brl, dmy, newKey, todayIso } from '../../lib/format';
 
 export interface Tx {
-  id: string; type: 'receita' | 'despesa'; description: string; categoryId: number; category: string; party: string | null; amount: string; competenceDate: string;
+  id: string; type: 'receita' | 'despesa'; description: string; categoryId: number; category: string; party: string | null; partyId: number | null; accountId: number | null; account: string | null; costCenterId: number | null; costCenter: string | null; amount: string; competenceDate: string;
   dueDate: string; settledDate: string | null; method: string | null; status: string; notes: string | null; attachmentName: string | null; storedStatus: string;
 }
 export const METHODS = ['Dinheiro', 'PIX', 'Transferência', 'Boleto', 'Cartão de crédito', 'Cartão de débito', 'Cheque', 'Outro'];
@@ -19,8 +19,11 @@ const LABEL: Record<string, string> = { prevista: 'Prevista', vencida: 'Vencida'
 function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; row: Tx | null; onClose: () => void; onSaved: () => void }) {
   const isR = type === 'receita'; const { can } = useAuth(); const toast = useToast();
   const cats = useFetch<{ id: number; name: string }[]>('/fin/categories', { type, active: 'true' });
+  const accounts = useFetch<{ accounts: { id: number; name: string; isDefault: boolean }[] }>('/fin/accounts', { active: 'true' });
+  const centers = useFetch<{ id: number; name: string }[]>('/fin/cost-centers', { active: 'true' });
+  const parties = useFetch<{ id: number; name: string }[]>('/cad/parties/options', { kind: isR ? 'customer' : 'supplier' });
   const f = useForm({
-    description: row?.description ?? '', categoryId: String(row?.categoryId ?? ''), party: row?.party ?? '', amount: row ? String(row.amount) : '', competenceDate: row?.competenceDate ?? todayIso(),
+    description: row?.description ?? '', categoryId: String(row?.categoryId ?? ''), party: row?.party ?? '', partyId: row?.partyId ? String(row.partyId) : '', accountId: row?.accountId ? String(row.accountId) : '', costCenterId: row?.costCenterId ? String(row.costCenterId) : '', amount: row ? String(row.amount) : '', competenceDate: row?.competenceDate ?? todayIso(),
     dueDate: row?.dueDate ?? todayIso(), method: row?.method ?? '', notes: row?.notes ?? '', repeatMonths: '', settleNow: false, settledDate: todayIso(),
   });
   const file = useRef<HTMLInputElement>(null);
@@ -41,7 +44,7 @@ function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; 
       <form id="txf" noValidate className="grid gap-3 sm:grid-cols-2" onSubmit={async (e) => {
         e.preventDefault();
         const ok = await f.submit(async () => {
-          const body = { type, description: f.v.description, categoryId: f.v.categoryId, party: f.v.party, amount: Number(f.v.amount), competenceDate: f.v.competenceDate, dueDate: f.v.dueDate, method: f.v.method, notes: f.v.notes };
+          const body = { type, description: f.v.description, categoryId: f.v.categoryId, party: f.v.partyId ? undefined : f.v.party, partyId: f.v.partyId || undefined, accountId: f.v.accountId || undefined, costCenterId: f.v.costCenterId || undefined, amount: Number(f.v.amount), competenceDate: f.v.competenceDate, dueDate: f.v.dueDate, method: f.v.method, notes: f.v.notes };
           const r = row ? await api.put<{ ok: true }>(`/fin/transactions/${row.id}`, body)
             : await api.post<{ id: string }>('/fin/transactions', { ...body, repeatMonths: f.v.repeatMonths ? Number(f.v.repeatMonths) : undefined, settledDate: f.v.settleNow ? f.v.settledDate : undefined });
           const fl = file.current?.files?.[0];
@@ -53,7 +56,10 @@ function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; 
         {locked && <p className="rounded-lg bg-muted px-3 py-2 text-xs sm:col-span-2">Lançamento {isR ? 'recebido' : 'pago'}: valor e datas ficam travados. Para alterá-los, use <b>Estornar baixa</b> na lista.</p>}
         <FInput f={f} name="description" label="Descrição" required className="sm:col-span-2" autoFocus />
         <FSelect f={f} name="categoryId" label="Categoria financeira" required options={(cats.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
-        <FInput f={f} name="party" label={isR ? 'Cliente / origem' : 'Fornecedor / beneficiário'} />
+        <FSelect f={f} name="partyId" label={isR ? 'Cliente cadastrado' : 'Fornecedor cadastrado'} placeholder="Nenhum (digitar abaixo)" options={(parties.data ?? []).map((p) => ({ value: p.id, label: p.name }))} />
+        {!f.v.partyId && <FInput f={f} name="party" label={isR ? 'Cliente / origem (texto livre)' : 'Fornecedor / beneficiário (texto livre)'} />}
+        <FSelect f={f} name="accountId" label="Conta" placeholder="Conta padrão" disabled={locked} options={(accounts.data?.accounts ?? []).filter((a) => !a.isDefault).map((a) => ({ value: a.id, label: a.name }))} />
+        <FSelect f={f} name="costCenterId" label="Centro de custo" placeholder="Nenhum" options={(centers.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         <FInput f={f} name="amount" label="Valor (R$)" type="number" step="0.01" min="0.01" required disabled={locked} />
         <FSelect f={f} name="method" label={isR ? 'Forma de recebimento' : 'Forma de pagamento'} options={METHODS.map((m) => ({ value: m, label: m }))} />
         <FInput f={f} name="competenceDate" label="Data de competência" type="date" required disabled={locked} />
@@ -83,7 +89,8 @@ function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; 
 
 function SettleModal({ tx, onClose, onDone }: { tx: Tx; onClose: () => void; onDone: () => void }) {
   const isR = tx.type === 'receita'; const toast = useToast();
-  const f = useForm({ effectiveDate: todayIso(), method: tx.method ?? '' });
+  const accounts = useFetch<{ accounts: { id: number; name: string; isDefault: boolean }[] }>('/fin/accounts', { active: 'true' });
+  const f = useForm({ effectiveDate: todayIso(), method: tx.method ?? '', accountId: tx.accountId ? String(tx.accountId) : '' });
   return (
     <Modal title={isR ? 'Registrar recebimento' : 'Registrar pagamento'} size="sm" onClose={onClose}
       footer={<><button className="btn-outline" onClick={onClose}>Cancelar</button><button form="stf" className="btn-primary" disabled={f.busy}>Confirmar {isR ? 'recebimento' : 'pagamento'}</button></>}>
@@ -95,6 +102,7 @@ function SettleModal({ tx, onClose, onDone }: { tx: Tx; onClose: () => void; onD
         <p className="rounded-lg bg-muted p-3 text-sm"><b>{tx.description}</b><br />{brl(tx.amount)} · vence em {dmy(tx.dueDate)}</p>
         <FInput f={f} name="effectiveDate" label={isR ? 'Data do recebimento' : 'Data do pagamento'} type="date" required max={todayIso()} />
         <FSelect f={f} name="method" label="Forma" options={METHODS.map((m) => ({ value: m, label: m }))} />
+        <FSelect f={f} name="accountId" label={isR ? 'Conta que recebeu' : 'Conta que pagou'} placeholder="Conta padrão" options={(accounts.data?.accounts ?? []).filter((a) => !a.isDefault).map((a) => ({ value: a.id, label: a.name }))} />
         <p className="text-xs text-muted-foreground">A baixa fica registrada com seu usuário e a data da operação. Se marcar por engano, use <b>Estornar baixa</b> na lista.</p>
       </form>
     </Modal>
@@ -105,11 +113,13 @@ export default function Transactions({ type }: { type: 'receita' | 'despesa' }) 
   const isR = type === 'receita'; const { can } = useAuth(); const toast = useToast(); const confirm = useConfirm();
   const [sp] = useSearchParams();
   const [from, setFrom] = useState(''); const [to, setTo] = useState(''); const [cat, setCat] = useState(''); const [status, setStatus] = useState(sp.get('status') ?? '');
-  const [method, setMethod] = useState(''); const [party, setParty] = useState('');
+  const [method, setMethod] = useState(''); const [party, setParty] = useState(''); const [accountId, setAccountId] = useState(''); const [costCenterId, setCostCenterId] = useState('');
   const [edit, setEdit] = useState<Tx | 'new' | null>(null); const [settle, setSettle] = useState<Tx | null>(null);
   useEffect(() => { setStatus(sp.get('status') ?? ''); setCat(''); }, [type, sp]);
   const cats = useFetch<{ id: number; name: string }[]>('/fin/categories', { type });
-  const t = useList<Tx>('/fin/transactions', { sort: 'dueDate', dir: 'desc', filters: { type, from, to, categoryId: cat, status, method, party } });
+  const accs = useFetch<{ accounts: { id: number; name: string }[] }>('/fin/accounts');
+  const ccs = useFetch<{ id: number; name: string }[]>('/fin/cost-centers');
+  const t = useList<Tx>('/fin/transactions', { sort: 'dueDate', dir: 'desc', filters: { type, from, to, categoryId: cat, status, method, party, accountId, costCenterId } });
 
   const cancel = async (r: Tx) => {
     if (!(await confirm({ title: 'Cancelar lançamento?', message: `"${r.description}" deixará de entrar nos totais. Não é possível reativá-lo.`, confirmLabel: 'Cancelar lançamento', danger: true }))) return;
@@ -128,7 +138,8 @@ export default function Transactions({ type }: { type: 'receita' | 'despesa' }) 
 
   const cols: Col<Tx>[] = [
     { key: 'description', label: 'Descrição', sort: 'description', render: (r) => <div><span className="font-semibold">{r.description}</span>{r.party && <div className="text-xs text-muted-foreground">{r.party}</div>}</div> },
-    { key: 'category', label: 'Categoria', sort: 'category' },
+    { key: 'category', label: 'Categoria', sort: 'category', render: (r) => <div>{r.category}{r.costCenter && <div className="text-xs text-muted-foreground">{r.costCenter}</div>}</div> },
+    { key: 'account', label: 'Conta', render: (r) => r.account ?? '—' },
     { key: 'amount', label: 'Valor', sort: 'amount', className: 'text-right tabular-nums', render: (r) => <span className={r.status === 'cancelada' ? 'line-through opacity-60' : ''}>{brl(r.amount)}</span> },
     { key: 'dueDate', label: 'Vencimento', sort: 'dueDate', render: (r) => dmy(r.dueDate) },
     { key: 'settledDate', label: isR ? 'Recebimento' : 'Pagamento', sort: 'settledDate', render: (r) => dmy(r.settledDate) },
@@ -152,6 +163,8 @@ export default function Transactions({ type }: { type: 'receita' | 'despesa' }) 
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar descrição ou origem…" />
         <FilterSelect label="Categoria" placeholder="Todas as categorias" value={cat} onChange={setCat} options={(cats.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         <FilterSelect label="Situação" placeholder="Todas as situações" value={status} onChange={setStatus} options={[{ value: 'prevista', label: 'Prevista' }, { value: 'vencida', label: 'Vencida' }, { value: isR ? 'recebida' : 'paga', label: isR ? 'Recebida' : 'Paga' }, { value: 'cancelada', label: 'Cancelada' }]} />
+        <FilterSelect label="Conta" placeholder="Todas as contas" value={accountId} onChange={setAccountId} options={(accs.data?.accounts ?? []).map((a) => ({ value: a.id, label: a.name }))} />
+        <FilterSelect label="Centro de custo" placeholder="Todos os centros" value={costCenterId} onChange={setCostCenterId} options={[{ value: 'none', label: 'Sem centro de custo' }, ...(ccs.data ?? []).map((c) => ({ value: c.id, label: c.name }))]} />
         <FilterSelect label="Forma" placeholder="Todas as formas" value={method} onChange={setMethod} options={METHODS.map((m) => ({ value: m, label: m }))} />
         <FilterDate label="Venc. de" value={from} onChange={setFrom} /><FilterDate label="até" value={to} onChange={setTo} />
         <input aria-label={isR ? 'Cliente/origem' : 'Fornecedor'} className="input" placeholder={isR ? 'Cliente / origem' : 'Fornecedor / beneficiário'} value={party} onChange={(e) => setParty(e.target.value)} />

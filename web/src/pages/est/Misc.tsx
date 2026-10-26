@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Tabs } from '../../components/ui';
 import { LookupPanel } from '../Lookup';
 import { ReportPage } from '../Report';
@@ -13,7 +14,13 @@ export function EstCatalogs() {
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'cat', label: 'Categorias de produto' }, { id: 'un', label: 'Unidades de medida' }, { id: 'sup', label: 'Fornecedores' }]} />
       {tab === 'cat' && <LookupPanel cfg={{ title: 'Categorias de produto', url: '/est/categories', label: 'Categoria', ...base }} />}
       {tab === 'un' && <LookupPanel cfg={{ title: 'Unidades de medida', subtitle: 'Ex.: unidade, caixa, pacote, litro, quilo e metro.', url: '/est/units', label: 'Unidade', hasCode: true, ...base }} />}
-      {tab === 'sup' && <LookupPanel cfg={{ title: 'Fornecedores', url: '/est/suppliers', label: 'Fornecedor', ...base }} />}
+      {tab === 'sup' && (
+        <div className="card p-6 text-sm">
+          <p className="font-display text-lg font-bold">Fornecedores</p>
+          <p className="mt-1 text-muted-foreground">Clientes e fornecedores agora têm um cadastro único, usado no estoque e no financeiro. Os fornecedores que já existiam foram mantidos.</p>
+          <Link to="/cadastros/parceiros" className="btn-primary mt-4 inline-flex">Abrir clientes e fornecedores</Link>
+        </div>
+      )}
     </div>
   );
 }

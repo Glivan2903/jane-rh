@@ -194,6 +194,11 @@ const settingsSchema = z.object({
   notify_overdue_enabled: z.boolean(),
   notify_receivables: z.boolean(),
   notify_stock_enabled: z.boolean(),
+  notify_docs_enabled: z.boolean(),
+  notify_batches_enabled: z.boolean(),
+  batch_alert_days: z.number().int().min(1, 'Mínimo 1 dia').max(365, 'Máximo 365 dias'),
+  notify_anomalies_enabled: z.boolean(),
+  anomaly_sensitivity: z.number().int().min(1, 'Escolha de 1 a 3').max(3, 'Escolha de 1 a 3'),
   notify_refresh_minutes: z.number().int().min(1, 'Mínimo 1 minuto').max(60, 'Máximo 60 minutos'),
   upcoming_list_size: z.number().int().min(3, 'Mínimo 3').max(30, 'Máximo 30'),
 }).partial();
