@@ -159,7 +159,7 @@ const employeeEntity: Entity = {
     const reg = str(row.registration).slice(0, 30);
     if (reg && (ctx.regs.has(norm(reg)) || seen.has('r:' + norm(reg)))) return err('Matrícula já em uso');
     const cbo = onlyDigits(str(row.cbo)); if (cbo && cbo.length !== 6) return err('CBO deve ter 6 dígitos');
-    const esocial = str(row.esocial).slice(0, 30);
+    const esocial = str(row.esocial).slice(0, 30); const ctps = str(row.ctps).slice(0, 30);
     const pn = str(row.payrollNumber).slice(0, 30);
     if (pn && (ctx.payrolls.has(norm(pn)) || seen.has('f:' + norm(pn)))) return err('Nº Folha já cadastrado');
     const birthDate = dateOf(str(row.birthDate)); if (birthDate === undefined || (birthDate && birthDate >= today())) return err('Data de nascimento inválida (use dd/mm/aaaa)');
@@ -177,7 +177,7 @@ const employeeEntity: Entity = {
     seen.add('c:' + cpf); if (pis) seen.add('p:' + pis); if (reg) seen.add('r:' + norm(reg)); if (pn) seen.add('f:' + norm(pn));
     const vt = norm(str(row.transportVoucher));
     return { r: { status: 'ok' as const, message: admissionDate ? 'Entra como ativo (admitido)' : 'Entra como aguardando admissão' },
-      data: { name, cpf, email: email || null, pis: pis || null, reg: reg || null, cbo: cbo || null, esocial: esocial || null, pn: pn || null, birthDate, admissionDate, positionId: positionId ?? null, departmentId: departmentId ?? null,
+      data: { name, cpf, email: email || null, pis: pis || null, reg: reg || null, cbo: cbo || null, esocial: esocial || null, ctps: ctps || null, pn: pn || null, birthDate, admissionDate, positionId: positionId ?? null, departmentId: departmentId ?? null,
         contractType: contractType ?? null, salary, phone: str(row.phone).slice(0, 30) || null, city: str(row.city).slice(0, 100) || null, state: state || null,
         transportVoucher: /^(s|sim|x|1|true|verdadeiro)$/.test(vt) } };
   },
@@ -186,9 +186,9 @@ const employeeEntity: Entity = {
     const admitting = !!d.admissionDate;
     const salary = hasPerm(req, 'rh.salary') ? d.salary : null;
     const id = (await c.query(
-      `INSERT INTO employees (registration, full_name, cpf, email, pis_pasep, payroll_number, cbo, esocial, birth_date, admission_date, position_id, department_id, contract_type, salary, phone, city, state, transport_voucher, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING id`,
-      [reg, d.name, d.cpf, d.email, d.pis, d.pn, d.cbo, d.esocial, d.birthDate, d.admissionDate, d.positionId, d.departmentId, d.contractType, salary, d.phone, d.city, d.state, d.transportVoucher, admitting ? 'ativo' : 'pre_cadastro'])).rows[0].id as string;
+      `INSERT INTO employees (registration, full_name, cpf, email, pis_pasep, payroll_number, cbo, esocial, ctps, birth_date, admission_date, position_id, department_id, contract_type, salary, phone, city, state, transport_voucher, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING id`,
+      [reg, d.name, d.cpf, d.email, d.pis, d.pn, d.cbo, d.esocial, d.ctps, d.birthDate, d.admissionDate, d.positionId, d.departmentId, d.contractType, salary, d.phone, d.city, d.state, d.transportVoucher, admitting ? 'ativo' : 'pre_cadastro'])).rows[0].id as string;
     const hist = (type: string, description: string, data?: object) => c.query(
       `INSERT INTO employment_history (employee_id, event_type, description, data, user_id, user_name) VALUES ($1,$2,$3,$4,$5,$6)`,
       [id, type, description, data ? JSON.stringify(data) : null, req.user!.id, req.user!.name]);

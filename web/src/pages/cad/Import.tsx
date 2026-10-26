@@ -30,7 +30,7 @@ export const KINDS: Kind[] = [
   { id: 'funcionarios', title: 'Funcionários', perm: 'rh.create', blurb: 'Cadastra funcionários novos. Quem já existe (mesmo CPF) é ignorado. Com data de admissão o funcionário entra como ativo; sem data, como aguardando admissão. Cargo e departamento precisam já estar cadastrados.', fields: [
     { key: 'fullName', label: 'Nome completo', required: true, hint: 'Nome e sobrenome', names: ['nome completo', 'nome', 'funcionario', 'colaborador'], example: 'Maria da Silva' },
     { key: 'cpf', label: 'CPF', required: true, hint: 'Com ou sem pontuação', names: ['cpf', 'documento'], example: '529.982.247-25' },
-    { key: 'phone', label: 'Telefone', hint: '', names: ['telefone', 'celular', 'fone', 'whatsapp'], example: '(11) 99999-0000' },
+    { key: 'phone', label: 'Telefone', hint: 'Opcional', names: ['telefone', 'celular', 'fone', 'whatsapp'], example: '(11) 99999-0000' },
     { key: 'email', label: 'E-mail', hint: '', names: ['email', 'e-mail'], example: 'maria@empresa.com.br' },
     { key: 'birthDate', label: 'Data de nascimento', hint: 'dd/mm/aaaa', names: ['data de nascimento', 'nascimento'], example: '15/03/1990' },
     { key: 'position', label: 'Cargo', hint: 'Já cadastrado', names: ['cargo', 'funcao'], example: 'Analista' },
@@ -40,6 +40,7 @@ export const KINDS: Kind[] = [
     { key: 'salary', label: 'Salário', hint: 'Só é gravado com permissão de salário', names: ['salario', 'remuneracao'], example: '3500,00' },
     { key: 'cbo', label: 'CBO', hint: '6 dígitos', names: ['cbo', 'codigo cbo'], example: '252105' },
     { key: 'esocial', label: 'eSocial', hint: 'Matrícula do eSocial', names: ['esocial', 'e-social', 'matricula esocial'], example: '1001234' },
+    { key: 'ctps', label: 'Nº Carteira de trabalho', hint: 'Número da CTPS', names: ['carteira de trabalho', 'n carteira de trabalho', 'no carteira de trabalho', 'ctps', 'carteira'], example: '1234567' },
     { key: 'registration', label: 'Matrícula', hint: 'Vazio = gerada automaticamente', names: ['matricula'], example: 'M000123' },
     { key: 'payrollNumber', label: 'Nº Folha', hint: '', names: ['n folha', 'no folha', 'numero da folha', 'folha'], example: '4567' },
     { key: 'pisPasep', label: 'PIS/PASEP', hint: '', names: ['pis/pasep', 'pis', 'pasep'], example: '12345678919' },

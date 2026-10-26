@@ -12,7 +12,7 @@ const UFS = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO R
 const str = (v: unknown) => (v == null ? '' : String(v));
 
 const blank = {
-  fullName: '', cpf: '', pisPasep: '', payrollNumber: '', cbo: '', esocial: '', identifierNumber: '', transportVoucher: false, registration: '', birthDate: '', gender: '', maritalStatus: '',
+  fullName: '', cpf: '', pisPasep: '', payrollNumber: '', cbo: '', esocial: '', ctps: '', identifierNumber: '', transportVoucher: false, registration: '', birthDate: '', gender: '', maritalStatus: '',
   phone: '', phoneAlt: '', email: '', zip: '', street: '', number: '', complement: '', district: '', city: '', state: '', notes: '',
   positionId: '', departmentId: '', contractType: '', admissionDate: '', salary: '', workload: '', managerId: '', corporateEmail: '', corporatePhone: '', professionalNotes: '',
 };
@@ -36,7 +36,7 @@ export default function EmployeeForm() {
     const e: Record<string, string> = {};
     if (f.v.fullName.trim().split(/\s+/).filter(Boolean).length < 2) e.fullName = 'Informe nome e sobrenome';
     if (!validCpf(f.v.cpf)) e.cpf = 'CPF inválido';
-    if (onlyDigits(f.v.phone).length < 10) e.phone = 'Informe o telefone com DDD';
+    if (f.v.phone && onlyDigits(f.v.phone).length < 10) e.phone = 'Informe o telefone com DDD';
     if (f.v.email && !/^\S+@\S+\.\S+$/.test(f.v.email)) e.email = 'E-mail inválido';
     if (f.v.corporateEmail && !/^\S+@\S+\.\S+$/.test(f.v.corporateEmail)) e.corporateEmail = 'E-mail inválido';
     if (f.v.zip && onlyDigits(f.v.zip).length !== 8) e.zip = 'CEP deve ter 8 dígitos';
@@ -80,7 +80,7 @@ export default function EmployeeForm() {
           <FSelect f={f} name="gender" label="Sexo" options={['Masculino', 'Feminino', 'Outro', 'Não informado'].map((x) => ({ value: x, label: x }))} />
           <FSelect f={f} name="maritalStatus" label="Estado civil" options={['Solteiro(a)', 'Casado(a)', 'União estável', 'Divorciado(a)', 'Viúvo(a)'].map((x) => ({ value: x, label: x }))} />
           <FInput f={f} name="pisPasep" label="Nº PIS/PASEP" mask={onlyDigits} hint="Somente números." />
-          <FInput f={f} name="phone" label="Telefone principal" required mask={maskPhone} placeholder="(00) 00000-0000" />
+          <FInput f={f} name="phone" label="Telefone principal" mask={maskPhone} placeholder="(00) 00000-0000" />
           <FInput f={f} name="phoneAlt" label="Telefone alternativo" mask={maskPhone} />
           <FInput f={f} name="email" label="E-mail pessoal" type="email" />
         </Section>
@@ -98,6 +98,7 @@ export default function EmployeeForm() {
           <FInput f={f} name="identifierNumber" label="Nº Identificador" />
           <FInput f={f} name="cbo" label="CBO" mask={(v) => onlyDigits(v).slice(0, 6)} placeholder="000000" hint="Código da ocupação, 6 dígitos." />
           <FInput f={f} name="esocial" label="eSocial" hint="Matrícula do eSocial." />
+          <FInput f={f} name="ctps" label="Nº Carteira de trabalho" hint="Número da CTPS." />
           <FSelect f={f} name="positionId" label="Cargo" options={opts(poss.data)} />
           <FSelect f={f} name="departmentId" label="Departamento / setor" options={opts(deps.data)} />
           <FSelect f={f} name="contractType" label="Tipo de vínculo" options={CONTRACTS.map((x) => ({ value: x, label: x }))} />

@@ -62,7 +62,7 @@ export default function EmployeeDetail() {
           <section className="card p-5"><h2 className="mb-3 font-display font-bold">Dados profissionais</h2>
             <dl className="grid gap-3 sm:grid-cols-3">
               <Row k="Cargo" v={d.position} /><Row k="Departamento" v={d.department} /><Row k="Vínculo" v={d.contractType} />
-              <Row k="Admissão" v={dmy(d.admissionDate as string)} /><Row k="Nº Folha" v={d.payrollNumber} /><Row k="Nº Identificador" v={d.identifierNumber} /><Row k="CBO" v={d.cbo} /><Row k="eSocial" v={d.esocial} />
+              <Row k="Admissão" v={dmy(d.admissionDate as string)} /><Row k="Nº Folha" v={d.payrollNumber} /><Row k="Nº Identificador" v={d.identifierNumber} /><Row k="CBO" v={d.cbo} /><Row k="eSocial" v={d.esocial} /><Row k="Carteira de trabalho" v={d.ctps} />
               <Row k="Vale-transporte" v={<Badge tone={d.transportVoucher ? 'success' : 'neutral'}>{d.transportVoucher ? 'Optante' : 'Não optante'}</Badge>} />
               {d.salary !== undefined && <Row k="Salário" v={d.salary != null ? brl(d.salary) : ''} />}
               <Row k="Jornada" v={d.workload} /><Row k="E-mail corporativo" v={d.corporateEmail} />
