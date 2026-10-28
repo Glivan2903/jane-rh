@@ -5,11 +5,11 @@ import { Badge, DataTable, Empty, Modal, PageHeader, type Col, type Tone } from 
 import { FCheck, FilterBar, FilterDate, FilterSelect, FInput, FSelect, FTextarea, SearchBox, SubmitButton } from '../../components/forms';
 import { api } from '../../lib/api';
 import { errMsg, useAuth, useConfirm, useToast } from '../../lib/app';
-import { useFetch, useForm, useList } from '../../lib/hooks';
+import { useFetch, useForm, useList, usePersisted } from '../../lib/hooks';
 import { brl, dmy, newKey, todayIso } from '../../lib/format';
 
 export interface Tx {
-  id: string; type: 'receita' | 'despesa'; description: string; categoryId: number; category: string; party: string | null; partyId: number | null; accountId: number | null; account: string | null; costCenterId: number | null; costCenter: string | null; amount: string; competenceDate: string;
+  id: string; type: 'receita' | 'despesa'; description: string; categoryId: number; category: string; party: string | null; partyId: number | null; accountId: number | null; account: string | null; costCenterId: number | null; costCenter: string | null; amount: string; interestRate?: string; competenceDate: string;
   dueDate: string; settledDate: string | null; method: string | null; status: string; notes: string | null; attachmentName: string | null; storedStatus: string;
 }
 export const METHODS = ['Dinheiro', 'PIX', 'Transferência', 'Boleto', 'Cartão de crédito', 'Cartão de débito', 'Cheque', 'Outro'];
@@ -23,7 +23,7 @@ function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; 
   const centers = useFetch<{ id: number; name: string }[]>('/fin/cost-centers', { active: 'true' });
   const parties = useFetch<{ id: number; name: string }[]>('/cad/parties/options', { kind: isR ? 'customer' : 'supplier' });
   const f = useForm({
-    description: row?.description ?? '', categoryId: String(row?.categoryId ?? ''), party: row?.party ?? '', partyId: row?.partyId ? String(row.partyId) : '', accountId: row?.accountId ? String(row.accountId) : '', costCenterId: row?.costCenterId ? String(row.costCenterId) : '', amount: row ? String(row.amount) : '', competenceDate: row?.competenceDate ?? todayIso(),
+    description: row?.description ?? '', categoryId: String(row?.categoryId ?? ''), party: row?.party ?? '', partyId: row?.partyId ? String(row.partyId) : '', accountId: row?.accountId ? String(row.accountId) : '', costCenterId: row?.costCenterId ? String(row.costCenterId) : '', amount: row ? String(row.amount) : '', interestRate: row && Number(row.interestRate) > 0 ? String(Number(row.interestRate)) : '', competenceDate: row?.competenceDate ?? todayIso(),
     dueDate: row?.dueDate ?? todayIso(), method: row?.method ?? '', notes: row?.notes ?? '', repeatMonths: '', settleNow: false, settledDate: todayIso(),
   });
   const file = useRef<HTMLInputElement>(null);
@@ -33,6 +33,7 @@ function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; 
     if (!f.v.description.trim()) e.description = 'Informe a descrição';
     if (!f.v.categoryId) e.categoryId = 'Selecione a categoria';
     if (!(Number(f.v.amount) > 0)) e.amount = 'Informe um valor maior que zero';
+    if (!isR && f.v.interestRate !== '' && !(Number(f.v.interestRate) >= 0 && Number(f.v.interestRate) <= 100)) e.interestRate = 'Informe um percentual entre 0 e 100';
     if (!f.v.dueDate) e.dueDate = 'Informe o vencimento'; if (!f.v.competenceDate) e.competenceDate = 'Informe a competência';
     if (f.v.repeatMonths && (Number(f.v.repeatMonths) < 2 || Number(f.v.repeatMonths) > 60)) e.repeatMonths = 'Entre 2 e 60 parcelas';
     const fl = file.current?.files?.[0]; if (fl && fl.size > 5 * 1024 * 1024) e.file = 'Arquivo acima de 5 MB';
@@ -44,7 +45,7 @@ function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; 
       <form id="txf" noValidate className="grid gap-3 sm:grid-cols-2" onSubmit={async (e) => {
         e.preventDefault();
         const ok = await f.submit(async () => {
-          const body = { type, description: f.v.description, categoryId: f.v.categoryId, party: f.v.partyId ? undefined : f.v.party, partyId: f.v.partyId || undefined, accountId: f.v.accountId || undefined, costCenterId: f.v.costCenterId || undefined, amount: Number(f.v.amount), competenceDate: f.v.competenceDate, dueDate: f.v.dueDate, method: f.v.method, notes: f.v.notes };
+          const body = { type, description: f.v.description, categoryId: f.v.categoryId, party: f.v.partyId ? undefined : f.v.party, partyId: f.v.partyId || undefined, accountId: f.v.accountId || undefined, costCenterId: f.v.costCenterId || undefined, amount: Number(f.v.amount), interestRate: isR ? 0 : Number(f.v.interestRate || 0), competenceDate: f.v.competenceDate, dueDate: f.v.dueDate, method: f.v.method, notes: f.v.notes };
           const r = row ? await api.put<{ ok: true }>(`/fin/transactions/${row.id}`, body)
             : await api.post<{ id: string }>('/fin/transactions', { ...body, repeatMonths: f.v.repeatMonths ? Number(f.v.repeatMonths) : undefined, settledDate: f.v.settleNow ? f.v.settledDate : undefined });
           const fl = file.current?.files?.[0];
@@ -61,6 +62,8 @@ function TxForm({ type, row, onClose, onSaved }: { type: 'receita' | 'despesa'; 
         <FSelect f={f} name="accountId" label="Conta" placeholder="Conta padrão" disabled={locked} options={(accounts.data?.accounts ?? []).filter((a) => !a.isDefault).map((a) => ({ value: a.id, label: a.name }))} />
         <FSelect f={f} name="costCenterId" label="Centro de custo" placeholder="Nenhum" options={(centers.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         <FInput f={f} name="amount" label="Valor (R$)" type="number" step="0.01" min="0.01" required disabled={locked} />
+        {!isR && <FInput f={f} name="interestRate" label="Juros após o vencimento (%)" type="number" step="0.01" min="0" max="100" disabled={locked}
+          hint={Number(f.v.interestRate) > 0 && Number(f.v.amount) > 0 ? `Só vale se pagar após o vencimento: + ${brl(Number(f.v.amount) * Number(f.v.interestRate) / 100)} (total ${brl(Number(f.v.amount) * (1 + Number(f.v.interestRate) / 100))}).` : 'Opcional: percentual cobrado somente se pagar depois do vencimento.'} />}
         <FSelect f={f} name="method" label={isR ? 'Forma de recebimento' : 'Forma de pagamento'} options={METHODS.map((m) => ({ value: m, label: m }))} />
         <FInput f={f} name="competenceDate" label="Data de competência" type="date" required disabled={locked} />
         <FInput f={f} name="dueDate" label="Data de vencimento" type="date" required disabled={locked} />
@@ -112,14 +115,15 @@ function SettleModal({ tx, onClose, onDone }: { tx: Tx; onClose: () => void; onD
 export default function Transactions({ type }: { type: 'receita' | 'despesa' }) {
   const isR = type === 'receita'; const { can } = useAuth(); const toast = useToast(); const confirm = useConfirm();
   const [sp] = useSearchParams();
-  const [from, setFrom] = useState(''); const [to, setTo] = useState(''); const [cat, setCat] = useState(''); const [status, setStatus] = useState(sp.get('status') ?? '');
-  const [method, setMethod] = useState(''); const [party, setParty] = useState(''); const [accountId, setAccountId] = useState(''); const [costCenterId, setCostCenterId] = useState('');
+  const pk = `fin.${type}`;
+  const [from, setFrom] = usePersisted(`${pk}.from`, ''); const [to, setTo] = usePersisted(`${pk}.to`, ''); const [cat, setCat] = usePersisted(`${pk}.cat`, ''); const [status, setStatus] = usePersisted(`${pk}.status`, '', sp.get('status'));
+  const [method, setMethod] = usePersisted(`${pk}.method`, ''); const [party, setParty] = usePersisted(`${pk}.party`, ''); const [accountId, setAccountId] = usePersisted(`${pk}.acc`, ''); const [costCenterId, setCostCenterId] = usePersisted(`${pk}.cc`, '');
   const [edit, setEdit] = useState<Tx | 'new' | null>(null); const [settle, setSettle] = useState<Tx | null>(null);
-  useEffect(() => { setStatus(sp.get('status') ?? ''); setCat(''); }, [type, sp]);
+  useEffect(() => { const s = sp.get('status'); if (s !== null) setStatus(s); }, [sp]); // eslint-disable-line react-hooks/exhaustive-deps
   const cats = useFetch<{ id: number; name: string }[]>('/fin/categories', { type });
   const accs = useFetch<{ accounts: { id: number; name: string }[] }>('/fin/accounts');
   const ccs = useFetch<{ id: number; name: string }[]>('/fin/cost-centers');
-  const t = useList<Tx>('/fin/transactions', { sort: 'dueDate', dir: 'desc', filters: { type, from, to, categoryId: cat, status, method, party, accountId, costCenterId } });
+  const t = useList<Tx>('/fin/transactions', { sort: 'dueDate', dir: 'desc', persistKey: pk, filters: { type, from, to, categoryId: cat, status, method, party, accountId, costCenterId } });
 
   const cancel = async (r: Tx) => {
     if (!(await confirm({ title: 'Cancelar lançamento?', message: `"${r.description}" deixará de entrar nos totais. Não é possível reativá-lo.`, confirmLabel: 'Cancelar lançamento', danger: true }))) return;
@@ -140,7 +144,7 @@ export default function Transactions({ type }: { type: 'receita' | 'despesa' }) 
     { key: 'description', label: 'Descrição', sort: 'description', render: (r) => <div><span className="font-semibold">{r.description}</span>{r.party && <div className="text-xs text-muted-foreground">{r.party}</div>}</div> },
     { key: 'category', label: 'Categoria', sort: 'category', render: (r) => <div>{r.category}{r.costCenter && <div className="text-xs text-muted-foreground">{r.costCenter}</div>}</div> },
     { key: 'account', label: 'Conta', render: (r) => r.account ?? '—' },
-    { key: 'amount', label: 'Valor', sort: 'amount', className: 'text-right tabular-nums', render: (r) => <span className={r.status === 'cancelada' ? 'line-through opacity-60' : ''}>{brl(r.amount)}</span> },
+    { key: 'amount', label: 'Valor', sort: 'amount', className: 'text-right tabular-nums', render: (r) => <div><span className={r.status === 'cancelada' ? 'line-through opacity-60' : ''}>{brl(r.amount)}</span>{Number(r.interestRate) > 0 && <div className="text-xs text-muted-foreground">+ {Number(r.interestRate).toLocaleString('pt-BR')}% de juros após o vencimento</div>}</div> },
     { key: 'dueDate', label: 'Vencimento', sort: 'dueDate', render: (r) => dmy(r.dueDate) },
     { key: 'settledDate', label: isR ? 'Recebimento' : 'Pagamento', sort: 'settledDate', render: (r) => dmy(r.settledDate) },
     { key: 'status', label: 'Situação', sort: 'status', render: (r) => <Badge tone={TONE[r.status]}>{LABEL[r.status]}</Badge> },
@@ -159,7 +163,7 @@ export default function Transactions({ type }: { type: 'receita' | 'despesa' }) 
   return (
     <div>
       <PageHeader title={isR ? 'Receitas' : 'Despesas'} subtitle={isR ? 'Contas a receber e receitas recebidas.' : 'Contas a pagar e despesas pagas.'} actions={add} />
-      <FilterBar>
+      <FilterBar dirty={!!(t.q || from || to || cat || status || method || party || accountId || costCenterId)} onClear={() => { t.setQ(''); setFrom(''); setTo(''); setCat(''); setStatus(''); setMethod(''); setParty(''); setAccountId(''); setCostCenterId(''); }}>
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar descrição ou origem…" />
         <FilterSelect label="Categoria" placeholder="Todas as categorias" value={cat} onChange={setCat} options={(cats.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         <FilterSelect label="Situação" placeholder="Todas as situações" value={status} onChange={setStatus} options={[{ value: 'prevista', label: 'Prevista' }, { value: 'vencida', label: 'Vencida' }, { value: isR ? 'recebida' : 'paga', label: isR ? 'Recebida' : 'Paga' }, { value: 'cancelada', label: 'Cancelada' }]} />

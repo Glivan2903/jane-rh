@@ -9,7 +9,7 @@ import { Badge, DataTable, Empty, Modal, PageHeader, type Col, type Tone } from 
 import { FCheck, FilterBar, FilterSelect, FInput, FSelect, FTextarea, SearchBox, SubmitButton } from '../../components/forms';
 import { api } from '../../lib/api';
 import { errMsg, useAuth, useConfirm, useToast } from '../../lib/app';
-import { useFetch, useForm, useList } from '../../lib/hooks';
+import { useFetch, useForm, useList, usePersisted } from '../../lib/hooks';
 import { brl, num } from '../../lib/format';
 
 export interface Product {
@@ -68,12 +68,12 @@ function ProductForm({ row, onClose, onSaved }: { row: Product | null; onClose: 
 
 export default function Products() {
   const { can } = useAuth(); const toast = useToast(); const confirm = useConfirm(); const [sp] = useSearchParams();
-  const [cat, setCat] = useState(''); const [st, setSt] = useState(sp.get('stockStatus') ?? ''); const [active, setActive] = useState('');
+  const [cat, setCat] = usePersisted('est.prod.cat', ''); const [st, setSt] = usePersisted('est.prod.st', '', sp.get('stockStatus')); const [active, setActive] = usePersisted('est.prod.active', '');
   const [edit, setEdit] = useState<Product | 'new' | null>(null); const [importing, setImporting] = useState(false);
   const [mv, setMv] = useState<{ kind: Kind; product?: ProdRef } | null>(null);
   const cats = useFetch<{ id: number; name: string }[]>('/est/categories');
   const alerts = useFetch<{ id: string; code: string; name: string; quantity: string; minStock: string; unit: string; status: string }[]>('/est/alerts');
-  const t = useList<Product>('/est/products', { sort: 'name', filters: { categoryId: cat, stockStatus: st, active } });
+  const t = useList<Product>('/est/products', { sort: 'name', persistKey: 'est.prod', filters: { categoryId: cat, stockStatus: st, active } });
 
   const remove = async (r: Product) => {
     if (!await confirm({ title: 'Excluir produto', danger: true, confirmLabel: 'Excluir', message: <>Deseja realmente excluir o produto <b>{r.code} — {r.name}</b>? Esta ação não pode ser desfeita. Produtos com movimentações não podem ser excluídos; inative-os.</> })) return;
@@ -117,7 +117,7 @@ export default function Products() {
           <div className="flex flex-wrap gap-2">{al.slice(0, 8).map((a) => <button key={a.id} className="rounded-full border bg-card px-3 py-1 text-xs hover:bg-muted" onClick={() => t.setQ(a.code)}>{a.name}: <b className={a.status === 'sem_estoque' ? 'text-danger' : 'text-warning'}>{num(a.quantity)} {a.unit}</b> (mín. {num(a.minStock)})</button>)}{al.length > 8 && <span className="px-2 py-1 text-xs text-muted-foreground">+{al.length - 8}</span>}</div>
         </div>
       )}
-      <FilterBar>
+      <FilterBar dirty={!!(t.q || cat || st || active)} onClear={() => { t.setQ(''); setCat(''); setSt(''); setActive(''); }}>
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar código, nome ou código de barras…" />
         <FilterSelect label="Categoria" placeholder="Todas as categorias" value={cat} onChange={setCat} options={(cats.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
         <FilterSelect label="Situação do estoque" placeholder="Todas as situações" value={st} onChange={setSt} options={Object.entries(ST).map(([v, o]) => ({ value: v, label: o.label }))} />

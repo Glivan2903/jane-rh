@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CalendarClock } from 'lucide-react';
 import { Badge, DataTable, Empty, PageHeader, StatCard, type Col } from '../../components/ui';
 import { FilterBar, FilterSelect, SearchBox } from '../../components/forms';
-import { useFetch, useList } from '../../lib/hooks';
+import { useFetch, useList, usePersisted } from '../../lib/hooks';
 import { dmy, num } from '../../lib/format';
 
 interface Batch { id: number; code: string; expiresAt: string | null; quantity: string; productId: string; productCode: string; product: string; unit: string; status: 'vencido' | 'a_vencer' | 'valido' | 'sem_validade'; daysLeft: number | null }
@@ -19,9 +19,9 @@ export function BatchBadge({ b }: { b: Pick<Batch, 'status' | 'daysLeft' | 'expi
 
 /** Lotes com saldo de todos os produtos controlados por lote: por padrão mostra o que exige atenção. */
 export default function Batches() {
-  const [sp] = useSearchParams(); const [status, setStatus] = useState(sp.get('status') ?? 'atencao');
+  const [sp] = useSearchParams(); const [status, setStatus] = usePersisted('est.batches.status', 'atencao', sp.get('status'));
   const sum = useFetch<{ vencidos: number; aVencer: number; total: number }>('/est/batches/summary');
-  const t = useList<Batch>('/est/batches', { sort: 'expiresAt', filters: { status } });
+  const t = useList<Batch>('/est/batches', { sort: 'expiresAt', persistKey: 'est.batches', filters: { status } });
   const cols: Col<Batch>[] = [
     { key: 'product', label: 'Produto', sort: 'product', render: (r) => <div><Link to={`/estoque/movimentacoes?productId=${r.productId}`} className="font-semibold text-primary hover:underline">{r.product}</Link><div className="font-mono text-xs text-muted-foreground">{r.productCode}</div></div> },
     { key: 'code', label: 'Lote', sort: 'code', render: (r) => <span className="font-mono text-xs">{r.code}</span> },
@@ -36,7 +36,7 @@ export default function Batches() {
         <StatCard label="Vencidos com saldo" value={sum.data?.vencidos ?? 0} format={(n) => String(n)} icon={AlertTriangle} tone={sum.data?.vencidos ? 'danger' : 'success'} />
         <StatCard label="A vencer" value={sum.data?.aVencer ?? 0} format={(n) => String(n)} icon={CalendarClock} tone={sum.data?.aVencer ? 'warning' : 'success'} hint="dentro do prazo de aviso" />
       </div>
-      <FilterBar>
+      <FilterBar dirty={!!(t.q || status !== 'atencao')} onClear={() => { t.setQ(''); setStatus('atencao'); }}>
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar produto ou lote…" />
         <FilterSelect label="Situação" placeholder="Situação" value={status} onChange={setStatus} options={STATUS} />
       </FilterBar>

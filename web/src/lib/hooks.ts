@@ -5,13 +5,31 @@ import { useDebounced, type ListState } from '../components/ui';
 
 type Params = Record<string, string | number | boolean | undefined | null>;
 
+/**
+ * Como useState, mas guarda o valor na sessão do navegador: ao sair da tela e voltar, o filtro continua
+ * até ser limpo. `key` nulo desliga a persistência; `override` (ex.: parâmetro da URL) vence o valor guardado.
+ */
+export function usePersisted(key: string | null, def: string, override?: string | null): [string, (v: string) => void] {
+  const read = () => { try { if (key) { const s = sessionStorage.getItem('gentis.f.' + key); if (s !== null) return s; } } catch { /* sem armazenamento */ } return def; };
+  const [st, setSt] = useState(() => ({ key, v: override ?? read() }));
+  let cur = st;
+  if (st.key !== key) { cur = { key, v: read() }; setSt(cur); }
+  const set = useCallback((v: string) => {
+    setSt({ key, v });
+    try { if (key) { if (v === def) sessionStorage.removeItem('gentis.f.' + key); else sessionStorage.setItem('gentis.f.' + key, v); } } catch { /* sem armazenamento */ }
+  }, [key, def]);
+  return [cur.v, set];
+}
+
 /** Listagem paginada no servidor com pesquisa (debounce), ordenação e filtros. */
-export function useList<T>(url: string, opts: { sort?: string; dir?: 'asc' | 'desc'; filters?: Params; pageSize?: number; enabled?: boolean } = {}) {
+export function useList<T>(url: string, opts: { sort?: string; dir?: 'asc' | 'desc'; filters?: Params; pageSize?: number; enabled?: boolean; persistKey?: string } = {}) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(opts.pageSize ?? 20);
-  const [sort, setSort] = useState(opts.sort ?? '');
-  const [dir, setDir] = useState<'asc' | 'desc'>(opts.dir ?? 'asc');
-  const [q, setQ] = useState('');
+  const pk = opts.persistKey;
+  const [sort, setSort] = usePersisted(pk ? `${pk}.sort` : null, opts.sort ?? '');
+  const [dirS, setDirS] = usePersisted(pk ? `${pk}.dir` : null, opts.dir ?? 'asc');
+  const dir = dirS as 'asc' | 'desc'; const setDir = setDirS;
+  const [q, setQ] = usePersisted(pk ? `${pk}.q` : null, '');
   const dq = useDebounced(q);
   const [data, setData] = useState<Page<T> | null>(null);
   const [loading, setLoading] = useState(true);

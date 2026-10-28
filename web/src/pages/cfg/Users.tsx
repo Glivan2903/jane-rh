@@ -4,7 +4,7 @@ import { Badge, DataTable, Empty, Modal, PageHeader, type Col } from '../../comp
 import { FCheck, FilterBar, FilterSelect, FInput, FSelect, SearchBox } from '../../components/forms';
 import { api } from '../../lib/api';
 import { useToast } from '../../lib/app';
-import { useFetch, useForm, useList } from '../../lib/hooks';
+import { useFetch, useForm, useList, usePersisted } from '../../lib/hooks';
 import { dmy, dmyTime } from '../../lib/format';
 
 interface U { id: string; name: string; email: string; username: string | null; roleId: number; role: string; active: boolean; createdAt: string; lastLoginAt: string | null }
@@ -49,9 +49,9 @@ function ResetModal({ u, onClose }: { u: U; onClose: () => void }) {
 
 export default function Users() {
   const roles = useFetch<Role[]>('/config/roles');
-  const [role, setRole] = useState(''); const [active, setActive] = useState('');
+  const [role, setRole] = usePersisted('cfg.users.role', ''); const [active, setActive] = usePersisted('cfg.users.active', '');
   const [edit, setEdit] = useState<U | 'new' | null>(null); const [reset, setReset] = useState<U | null>(null);
-  const t = useList<U>('/config/users', { sort: 'name', filters: { roleId: role, active } });
+  const t = useList<U>('/config/users', { sort: 'name', persistKey: 'cfg.users', filters: { roleId: role, active } });
   const cols: Col<U>[] = [
     { key: 'name', label: 'Nome', sort: 'name', render: (r) => <div><b>{r.name}</b><div className="text-xs text-muted-foreground">{r.email}{r.username ? ` · @${r.username}` : ''}</div></div> },
     { key: 'role', label: 'Perfil', sort: 'role', render: (r) => <Badge tone="info">{r.role}</Badge> },
@@ -66,7 +66,7 @@ export default function Users() {
   return (
     <div>
       <PageHeader title="Usuários" subtitle="Quem acessa o sistema e com qual perfil." actions={add} />
-      <FilterBar>
+      <FilterBar dirty={!!(t.q || role || active)} onClear={() => { t.setQ(''); setRole(''); setActive(''); }}>
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar nome, e-mail ou usuário…" />
         <FilterSelect label="Perfil" placeholder="Todos os perfis" value={role} onChange={setRole} options={(roles.data ?? []).map((r) => ({ value: r.id, label: r.name }))} />
         <FilterSelect label="Status" placeholder="Ativos e inativos" value={active} onChange={setActive} options={[{ value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]} />
