@@ -7,7 +7,7 @@ import { Badge, DataTable, Empty, PageHeader, type Col } from '../../components/
 import { FilterBar, FilterDate, FilterSelect, SearchBox } from '../../components/forms';
 import { errMsg, useAuth, useConfirm, useToast } from '../../lib/app';
 import { api } from '../../lib/api';
-import { useFetch, useList } from '../../lib/hooks';
+import { useFetch, useList, usePersisted } from '../../lib/hooks';
 import { dmy, fmtCpf } from '../../lib/format';
 
 export interface Employee {
@@ -18,13 +18,13 @@ export const statusBadge = (s: Employee['status']) => s === 'ativo' ? <Badge ton
 
 export default function Employees() {
   const { can } = useAuth(); const nav = useNavigate(); const toast = useToast(); const confirm = useConfirm();
-  const [status, setStatus] = useState('todos'); const [dep, setDep] = useState(''); const [pos, setPos] = useState('');
-  const [from, setFrom] = useState(''); const [to, setTo] = useState('');
+  const [status, setStatus] = usePersisted('rh.func.status', 'todos'); const [dep, setDep] = usePersisted('rh.func.dep', ''); const [pos, setPos] = usePersisted('rh.func.pos', '');
+  const [from, setFrom] = usePersisted('rh.func.from', ''); const [to, setTo] = usePersisted('rh.func.to', '');
   const deps = useFetch<{ id: number; name: string }[]>('/rh/departments', { active: 'true' });
   const poss = useFetch<{ id: number; name: string }[]>('/rh/positions', { active: 'true' });
   const [importing, setImporting] = useState(false);
   const [act, setAct] = useState<{ kind: 'adm' | 'term'; emp: EmpRef } | null>(null);
-  const t = useList<Employee>('/rh/employees', { sort: 'name', filters: { status, departmentId: dep, positionId: pos, admissionFrom: from, admissionTo: to } });
+  const t = useList<Employee>('/rh/employees', { sort: 'name', persistKey: 'rh.func', filters: { status, departmentId: dep, positionId: pos, admissionFrom: from, admissionTo: to } });
 
   const remove = async (r: Employee) => {
     if (!(await confirm({ title: 'Excluir funcionário?', message: `${r.fullName} (mat. ${r.registration}) e todo o histórico profissional serão excluídos definitivamente. Uma cópia dos dados fica registrada nos logs de auditoria.`, confirmLabel: 'Excluir', danger: true }))) return;
@@ -57,7 +57,7 @@ export default function Employees() {
   return (
     <div>
       <PageHeader title="Funcionários" subtitle="Cadastro e controle administrativo de pessoal." actions={topBtns} />
-      <FilterBar>
+      <FilterBar dirty={!!(t.q || dep || pos || from || to || status !== 'todos')} onClear={() => { t.setQ(''); setStatus('todos'); setDep(''); setPos(''); setFrom(''); setTo(''); }}>
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar nome, CPF, cargo, departamento…" />
         <FilterSelect label="Situação" placeholder="Situação" value={status} onChange={setStatus} options={[{ value: 'ativo', label: 'Ativos' }, { value: 'desligado', label: 'Desligados' }, { value: 'pre_cadastro', label: 'Aguardando admissão' }, { value: 'todos', label: 'Todos' }]} />
         <FilterSelect label="Departamento" placeholder="Todos os departamentos" value={dep} onChange={setDep} options={(deps.data ?? []).map((d) => ({ value: d.id, label: d.name }))} />

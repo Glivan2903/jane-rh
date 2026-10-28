@@ -80,6 +80,7 @@ const txSchema = z.object({
   accountId: optInt,
   costCenterId: optInt,
   amount: money,
+  interestRate: z.preprocess((v) => (v === '' || v == null ? 0 : v), z.coerce.number({ invalid_type_error: 'Percentual inválido' }).min(0, 'Não pode ser negativo').max(100, 'Máximo 100%')),
   competenceDate: reqDate,
   dueDate: reqDate,
   method: z.preprocess((v) => (v === '' ? null : v), z.enum(METHODS as [string, ...string[]]).nullable().optional()),
@@ -89,7 +90,7 @@ const txSchema = z.object({
 });
 
 const TX_SELECT = `t.id, t.type, t.description, t.category_id AS "categoryId", c.name AS category, t.party, t.party_id AS "partyId", t.account_id AS "accountId", COALESCE(ba.name, (SELECT name FROM bank_accounts WHERE is_default)) AS account,
-  t.cost_center_id AS "costCenterId", cc.name AS "costCenter", t.amount, t.competence_date AS "competenceDate",
+  t.cost_center_id AS "costCenterId", cc.name AS "costCenter", t.amount, t.interest_rate AS "interestRate", t.competence_date AS "competenceDate",
   t.due_date AS "dueDate", t.settled_date AS "settledDate", t.method, t.status AS "storedStatus", ${EFF} AS status, t.notes,
   t.attachment_name AS "attachmentName", t.series_id AS "seriesId", t.created_at AS "createdAt"`;
 const TX_FROM = `FROM financial_transactions t JOIN financial_categories c ON c.id = t.category_id
@@ -167,10 +168,10 @@ finRouter.post('/transactions', requireAuth('fin.create'), h(async (req, res) =>
     for (let i = 0; i < n; i++) {
       const desc = n > 1 ? `${d.description} (${i + 1}/${n})` : d.description;
       const row = (await c.query(
-        `INSERT INTO financial_transactions (type, description, category_id, party, party_id, amount, competence_date, due_date, settled_date, method, status, notes, series_id, created_by, account_id, cost_center_id)
-         VALUES ($1,$2,$3,$4,$14,$5,$6,$7,$8,$9,$10,$11,$12,$13,$15,$16) RETURNING id`,
+        `INSERT INTO financial_transactions (type, description, category_id, party, party_id, amount, competence_date, due_date, settled_date, method, status, notes, series_id, created_by, account_id, cost_center_id, interest_rate)
+         VALUES ($1,$2,$3,$4,$14,$5,$6,$7,$8,$9,$10,$11,$12,$13,$15,$16,$17) RETURNING id`,
         [d.type, desc, d.categoryId, pty.party, d.amount, addMonths(d.competenceDate, i), addMonths(d.dueDate, i), d.settledDate ?? null, d.method ?? null,
-         d.settledDate ? 'realizada' : 'pendente', d.notes ?? null, series, req.user!.id, pty.partyId, d.accountId ?? null, d.costCenterId ?? null])).rows[0];
+         d.settledDate ? 'realizada' : 'pendente', d.notes ?? null, series, req.user!.id, pty.partyId, d.accountId ?? null, d.costCenterId ?? null, d.type === 'despesa' ? d.interestRate : 0])).rows[0];
       if (d.settledDate) {
         await c.query(`INSERT INTO payment_records (transaction_id, amount, effective_date, method, user_id, user_name) VALUES ($1,$2,$3,$4,$5,$6)`,
           [row.id, d.amount, d.settledDate, d.method ?? null, req.user!.id, req.user!.name]);
@@ -199,8 +200,8 @@ finRouter.put('/transactions/:id', requireAuth('fin.edit'), h(async (req, res) =
         throw new HttpError(409, 'Lançamento já baixado: valor e datas não podem ser alterados.');
       await c.query('UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, party_id=$6, cost_center_id=$7, notes=$5, updated_at=now() WHERE id=$1', [req.params.id, d.description, d.categoryId, pty.party, d.notes ?? null, pty.partyId, d.costCenterId ?? null]);
     } else {
-      await c.query(`UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, party_id=$10, account_id=$11, cost_center_id=$12, amount=$5, competence_date=$6, due_date=$7, method=$8, notes=$9, updated_at=now() WHERE id=$1`,
-        [req.params.id, d.description, d.categoryId, pty.party, d.amount, d.competenceDate, d.dueDate, d.method ?? null, d.notes ?? null, pty.partyId, d.accountId ?? null, d.costCenterId ?? null]);
+      await c.query(`UPDATE financial_transactions SET description=$2, category_id=$3, party=$4, party_id=$10, account_id=$11, cost_center_id=$12, interest_rate=$13, amount=$5, competence_date=$6, due_date=$7, method=$8, notes=$9, updated_at=now() WHERE id=$1`,
+        [req.params.id, d.description, d.categoryId, pty.party, d.amount, d.competenceDate, d.dueDate, d.method ?? null, d.notes ?? null, pty.partyId, d.accountId ?? null, d.costCenterId ?? null, cur.type === 'despesa' ? d.interestRate : 0]);
     }
     const diffs = [Number(cur.amount) !== d.amount && 'valor', cur.due_date !== d.dueDate && 'vencimento', cur.category_id !== d.categoryId && 'categoria'].filter(Boolean);
     await audit(req, { action: 'editar', module: 'financeiro', entity: 'transaction', entityId: req.params.id, summary: `Lançamento editado: ${d.description}`, details: { campos: diffs, valorAnterior: cur.amount, valorNovo: d.amount, vencimentoAnterior: cur.due_date, vencimentoNovo: d.dueDate } }, c);

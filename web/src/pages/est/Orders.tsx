@@ -4,7 +4,7 @@ import { Badge, DataTable, Empty, ErrorBox, Modal, PageHeader, Skeleton, useDebo
 import { FCheck, FilterBar, FilterSelect, FInput, FSelect, FTextarea, SearchBox } from '../../components/forms';
 import { api } from '../../lib/api';
 import { errMsg, useAuth, useConfirm, useToast } from '../../lib/app';
-import { useFetch, useForm, useList } from '../../lib/hooks';
+import { useFetch, useForm, useList, usePersisted } from '../../lib/hooks';
 import { brl, dmy, num, todayIso } from '../../lib/format';
 import { ScanButton } from '../../components/BarcodeScanner';
 
@@ -233,8 +233,8 @@ function OrderView({ id, onClose, onChanged, onEdit }: { id: number; onClose: ()
 
 export default function Orders() {
   const { can } = useAuth();
-  const [status, setStatus] = useState('abertos');
-  const t = useList<Row>('/est/orders', { sort: 'id', dir: 'desc', filters: { status } });
+  const [status, setStatus] = usePersisted('est.orders.status', 'abertos');
+  const t = useList<Row>('/est/orders', { sort: 'id', dir: 'desc', persistKey: 'est.orders', filters: { status } });
   const [form, setForm] = useState<number | 'new' | null>(null); const [view, setView] = useState<number | null>(null);
   const add = can('est.create') && <button className="btn-primary" onClick={() => setForm('new')}><Plus className="h-4 w-4" />Novo pedido</button>;
   const cols: Col<Row>[] = [
@@ -250,7 +250,7 @@ export default function Orders() {
   return (
     <div>
       <PageHeader title="Pedidos de compra" subtitle="Peça ao fornecedor, receba a mercadoria no estoque e gere a conta a pagar." actions={add} />
-      <FilterBar>
+      <FilterBar dirty={!!(t.q || status !== 'abertos')} onClear={() => { t.setQ(''); setStatus('abertos'); }}>
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar número ou fornecedor…" />
         <FilterSelect label="Situação" placeholder="Situação" value={status} onChange={setStatus} options={FILTER} />
       </FilterBar>

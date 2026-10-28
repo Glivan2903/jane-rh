@@ -5,7 +5,7 @@ import { DataTable, Empty, PageHeader, StatCard, type Col } from '../../componen
 import { FilterBar, FilterSelect, SearchBox } from '../../components/forms';
 import { api } from '../../lib/api';
 import { errMsg, useToast } from '../../lib/app';
-import { useFetch, useList } from '../../lib/hooks';
+import { useFetch, useList, usePersisted } from '../../lib/hooks';
 import { dmy } from '../../lib/format';
 import { DocBadge, type Doc, type DocType } from './docs';
 
@@ -14,10 +14,10 @@ const STATUS = [{ value: 'atencao', label: 'Vencidos e a vencer' }, { value: 've
 /** Documentos de todos os funcionários: por padrão mostra o que exige atenção. */
 export default function Documents() {
   const [sp] = useSearchParams(); const toast = useToast();
-  const [status, setStatus] = useState(sp.get('status') ?? 'atencao'); const [typeId, setTypeId] = useState(''); const [es, setEs] = useState('ativos');
+  const [status, setStatus] = usePersisted('rh.docs.status', 'atencao', sp.get('status')); const [typeId, setTypeId] = usePersisted('rh.docs.type', ''); const [es, setEs] = usePersisted('rh.docs.es', 'ativos');
   const types = useFetch<DocType[]>('/rh/document-types');
   const sum = useFetch<{ vencidos: number; aVencer: number; total: number }>('/rh/documents/summary');
-  const t = useList<Doc>('/rh/documents', { sort: 'expiresAt', filters: { status, typeId, employeeStatus: es } });
+  const t = useList<Doc>('/rh/documents', { sort: 'expiresAt', persistKey: 'rh.docs', filters: { status, typeId, employeeStatus: es } });
   const cols: Col<Doc>[] = [
     { key: 'employee', label: 'Funcionário', sort: 'employee', render: (r) => <Link to={`/rh/funcionarios/${r.employeeId}`} className="font-semibold text-primary hover:underline">{r.employeeName}</Link> },
     { key: 'type', label: 'Documento', sort: 'type', render: (r) => <div>{r.title || r.type}{r.title && <div className="text-xs text-muted-foreground">{r.type}</div>}</div> },
@@ -32,7 +32,7 @@ export default function Documents() {
         <StatCard label="Vencidos" value={sum.data?.vencidos ?? 0} format={(n) => String(n)} icon={AlertTriangle} tone={sum.data?.vencidos ? 'danger' : 'success'} />
         <StatCard label="A vencer" value={sum.data?.aVencer ?? 0} format={(n) => String(n)} icon={FileClock} tone={sum.data?.aVencer ? 'warning' : 'success'} hint="dentro do prazo de aviso do tipo" />
       </div>
-      <FilterBar>
+      <FilterBar dirty={!!(t.q || status !== 'atencao' || typeId || es !== 'ativos')} onClear={() => { t.setQ(''); setStatus('atencao'); setTypeId(''); setEs('ativos'); }}>
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar funcionário ou documento…" />
         <FilterSelect label="Situação" placeholder="Situação" value={status} onChange={setStatus} options={STATUS} />
         <FilterSelect label="Tipo" placeholder="Todos os tipos" value={typeId} onChange={setTypeId} options={(types.data ?? []).map((x) => ({ value: x.id, label: x.name }))} />

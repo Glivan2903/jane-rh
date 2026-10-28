@@ -4,7 +4,7 @@ import { Badge, DataTable, Empty, Modal, PageHeader, type Col } from '../../comp
 import { FCheck, FilterBar, FilterSelect, FInput, FTextarea, SearchBox } from '../../components/forms';
 import { api } from '../../lib/api';
 import { useAuth, useToast } from '../../lib/app';
-import { useForm, useList } from '../../lib/hooks';
+import { useForm, useList, usePersisted } from '../../lib/hooks';
 
 interface Party {
   id: number; name: string; isCustomer: boolean; isSupplier: boolean; document: string | null; email: string | null; phone: string | null;
@@ -49,9 +49,9 @@ function PartyForm({ row, onClose, onSaved }: { row: Party | null; onClose: () =
 
 export default function Parties() {
   const { can } = useAuth();
-  const [kind, setKind] = useState(''); const [active, setActive] = useState('');
+  const [kind, setKind] = usePersisted('cad.parties.kind', ''); const [active, setActive] = usePersisted('cad.parties.active', '');
   const [edit, setEdit] = useState<Party | 'new' | null>(null);
-  const t = useList<Party>('/cad/parties', { sort: 'name', filters: { kind, active } });
+  const t = useList<Party>('/cad/parties', { sort: 'name', persistKey: 'cad.parties', filters: { kind, active } });
   const cols: Col<Party>[] = [
     { key: 'name', label: 'Nome', sort: 'name', render: (r) => <div><span className="font-semibold">{r.name}</span>{r.email && <div className="text-xs text-muted-foreground">{r.email}</div>}</div> },
     { key: 'kind', label: 'Tipo', render: (r) => <div className="flex gap-1">{r.isCustomer && <Badge tone="info">Cliente</Badge>}{r.isSupplier && <Badge tone="warning">Fornecedor</Badge>}</div> },
@@ -65,7 +65,7 @@ export default function Parties() {
   return (
     <div>
       <PageHeader title="Clientes e fornecedores" subtitle="Cadastro único usado no financeiro e no estoque. Para parar de usar um cadastro, inative-o." actions={add} />
-      <FilterBar>
+      <FilterBar dirty={!!(t.q || kind || active)} onClear={() => { t.setQ(''); setKind(''); setActive(''); }}>
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar nome, CPF/CNPJ ou e-mail…" />
         <FilterSelect label="Tipo" placeholder="Clientes e fornecedores" value={kind} onChange={setKind} options={[{ value: 'customer', label: 'Somente clientes' }, { value: 'supplier', label: 'Somente fornecedores' }]} />
         <FilterSelect label="Situação" placeholder="Todas as situações" value={active} onChange={setActive} options={[{ value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]} />

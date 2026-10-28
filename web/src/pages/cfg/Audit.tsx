@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { ScrollText } from 'lucide-react';
 import { Badge, DataTable, Empty, PageHeader, type Col } from '../../components/ui';
 import { FilterBar, FilterDate, FilterSelect, SearchBox } from '../../components/forms';
-import { useList } from '../../lib/hooks';
+import { useList, usePersisted } from '../../lib/hooks';
 import { dmyTime } from '../../lib/format';
 
 interface A { id: number; at: string; userName: string | null; action: string; module: string; entity: string | null; entityId: string | null; result: string; summary: string }
 
 export default function Audit() {
-  const [module, setModule] = useState(''); const [result, setResult] = useState(''); const [from, setFrom] = useState(''); const [to, setTo] = useState('');
-  const t = useList<A>('/config/audit', { sort: 'at', dir: 'desc', pageSize: 50, filters: { module, result, from, to } });
+  const [module, setModule] = usePersisted('cfg.audit.module', ''); const [result, setResult] = usePersisted('cfg.audit.result', ''); const [from, setFrom] = usePersisted('cfg.audit.from', ''); const [to, setTo] = usePersisted('cfg.audit.to', '');
+  const t = useList<A>('/config/audit', { sort: 'at', dir: 'desc', pageSize: 50, persistKey: 'cfg.audit', filters: { module, result, from, to } });
   const cols: Col<A>[] = [
     { key: 'at', label: 'Data e hora', sort: 'at', render: (r) => dmyTime(r.at) },
     { key: 'user', label: 'Usuário', sort: 'user', render: (r) => r.userName ?? 'sistema' },
@@ -22,7 +22,7 @@ export default function Audit() {
   return (
     <div>
       <PageHeader title="Auditoria" subtitle="Registros imutáveis das operações do sistema. Senhas e segredos nunca são gravados." />
-      <FilterBar>
+      <FilterBar dirty={!!(t.q || module || result || from || to)} onClear={() => { t.setQ(''); setModule(''); setResult(''); setFrom(''); setTo(''); }}>
         <SearchBox value={t.q} onChange={t.setQ} placeholder="Buscar descrição ou usuário…" />
         <FilterSelect label="Módulo" placeholder="Todos os módulos" value={module} onChange={setModule} options={['auth', 'rh', 'financeiro', 'estoque', 'config'].map((m) => ({ value: m, label: m }))} />
         <FilterSelect label="Resultado" placeholder="Qualquer resultado" value={result} onChange={setResult} options={[{ value: 'sucesso', label: 'Sucesso' }, { value: 'falha', label: 'Falha' }]} />

@@ -82,8 +82,9 @@ export const SubmitButton = ({ busy, children, className = 'btn-primary' }: { bu
 );
 
 /** Barra de filtros de listagens. */
-export function FilterBar({ children }: { children: ReactNode }) {
-  return <div className="no-print mb-3 grid grid-cols-2 gap-2 rounded-xl border bg-card p-2.5 sm:mb-4 sm:gap-3 sm:p-3 lg:grid-cols-4 [&>:first-child]:col-span-2 sm:[&>:first-child]:col-span-1">{children}</div>;
+export function FilterBar({ children, dirty, onClear }: { children: ReactNode; dirty?: boolean; onClear?: () => void }) {
+  return <div className="no-print mb-3 grid grid-cols-2 gap-2 rounded-xl border bg-card p-2.5 sm:mb-4 sm:gap-3 sm:p-3 lg:grid-cols-4 [&>:first-child]:col-span-2 sm:[&>:first-child]:col-span-1">{children}
+    {onClear && dirty && <button type="button" className="btn-outline" onClick={onClear}>Limpar filtros</button>}</div>;
 }
 export const SearchBox = ({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) => (
   <input type="search" aria-label={placeholder} className="input" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
